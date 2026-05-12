@@ -4,9 +4,9 @@
 
 **Goal:** Build a Dockerized full-stack MVP for a one-shop nail salon with an English landing page, public booking flow, role-based admin dashboard, PostgreSQL, Hono, Redis, MinIO, and Nuxt.
 
-**Architecture:** Use a pnpm monorepo with `apps/api` for the Hono REST API, `apps/web` for the Nuxt app, and `packages/shared` for shared schemas/types. PostgreSQL remains the source of truth, Redis caches public site data, and MinIO stores uploaded media while the database stores media metadata. The host currently has Docker but not Node or pnpm, so all install/test/build commands should run through Docker Compose services.
+**Architecture:** Use a Bun workspace monorepo with `apps/api` for the Hono REST API, `apps/web` for the Nuxt app, and `packages/shared` for shared schemas/types. PostgreSQL remains the source of truth, Redis caches public site data, and MinIO stores uploaded media while the database stores media metadata. JavaScript tooling uses Bun; Docker Compose runs PostgreSQL, Redis, MinIO, and can also run Bun through `oven/bun` for reproducible commands.
 
-**Tech Stack:** TypeScript, pnpm workspaces, Nuxt 3, Nuxt UI, Pinia, i18n, SEO/Image/Icon/Fonts modules, Hono, Zod, Drizzle ORM, PostgreSQL, Redis, MinIO, Vitest, Docker Compose.
+**Tech Stack:** TypeScript, Bun workspaces, Nuxt 3, Nuxt UI, Pinia, i18n, SEO/Image/Icon/Fonts modules, Hono, Zod, Drizzle ORM, PostgreSQL, Redis, MinIO, Vitest, Docker Compose.
 
 ---
 
@@ -24,7 +24,7 @@
 Create or modify these paths:
 
 - `package.json`: root scripts and workspace metadata.
-- `pnpm-workspace.yaml`: monorepo package discovery.
+- root `package.json` `workspaces`: monorepo package discovery.
 - `tsconfig.base.json`: shared TypeScript defaults.
 - `.env.example`: documented local environment values.
 - `.dockerignore`: Docker build context exclusions.
@@ -76,19 +76,25 @@ Create or modify these paths:
 
 ## Command Conventions
 
-Before `docker-compose.yml` exists, use:
+Before `docker-compose.yml` exists, use host Bun:
 
 ```bash
-docker run --rm -v "$PWD":/workspace -w /workspace node:22-bookworm bash -lc "corepack enable && pnpm --version"
+bun --version
+```
+
+If Bun is not visible in the current shell, use the Docker fallback:
+
+```bash
+docker run --rm -v "$PWD":/workspace -w /workspace oven/bun:1.2.15 bun --version
 ```
 
 After Task 1, use Docker Compose:
 
 ```bash
-docker compose run --rm tooling pnpm install
-docker compose run --rm tooling pnpm --filter @nailly/shared test
-docker compose run --rm tooling pnpm --filter @nailly/api test
-docker compose run --rm tooling pnpm --filter @nailly/web test
+docker compose run --rm tooling bun install
+docker compose run --rm tooling bun --filter @nailly/shared test
+docker compose run --rm tooling bun --filter @nailly/api test
+docker compose run --rm tooling bun --filter @nailly/web test
 ```
 
 ---
@@ -97,7 +103,6 @@ docker compose run --rm tooling pnpm --filter @nailly/web test
 
 **Files:**
 - Create: `package.json`
-- Create: `pnpm-workspace.yaml`
 - Create: `tsconfig.base.json`
 - Create: `.env.example`
 - Create: `.dockerignore`
@@ -112,28 +117,28 @@ Create `package.json`:
 {
   "name": "nailly",
   "private": true,
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "bun@1.2.15",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "docker compose up --build",
-    "install:docker": "docker compose run --rm tooling pnpm install",
-    "test": "docker compose run --rm tooling pnpm -r test",
-    "lint": "docker compose run --rm tooling pnpm -r lint",
-    "build": "docker compose run --rm tooling pnpm -r build",
-    "db:push": "docker compose run --rm tooling pnpm --filter @nailly/api db:push",
-    "db:seed": "docker compose run --rm tooling pnpm --filter @nailly/api db:seed"
+    "install": "bun install",
+    "test": "bun --filter '*' test",
+    "lint": "bun --filter '*' lint",
+    "build": "bun --filter '*' build",
+    "db:push": "bun --filter @nailly/api db:push",
+    "db:seed": "bun --filter @nailly/api db:seed",
+    "docker:install": "docker compose run --rm tooling bun install",
+    "docker:test": "docker compose run --rm tooling bun --filter '*' test",
+    "docker:lint": "docker compose run --rm tooling bun --filter '*' lint",
+    "docker:build": "docker compose run --rm tooling bun --filter '*' build"
   }
 }
 ```
 
-- [ ] **Step 2: Create workspace config**
-
-Create `pnpm-workspace.yaml`:
-
-```yaml
-packages:
-  - apps/*
-  - packages/*
-```
+- [ ] **Step 2: Create shared TypeScript config**
 
 Create `tsconfig.base.json`:
 
@@ -148,7 +153,7 @@ Create `tsconfig.base.json`:
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": ["bun", "node"],
     "baseUrl": ".",
     "paths": {
       "@nailly/shared": ["packages/shared/src/index.ts"]
@@ -267,23 +272,23 @@ services:
       "
 
   tooling:
-    image: node:22-bookworm
+    image: oven/bun:1.2.15
     working_dir: /workspace
     env_file:
       - .env
     volumes:
       - .:/workspace
-      - pnpm-store:/root/.local/share/pnpm/store
-    command: bash -lc "corepack enable && pnpm --version"
+      - bun-cache:/root/.bun/install/cache
+    command: sh -lc "bun --version"
 
   api:
-    image: node:22-bookworm
+    image: oven/bun:1.2.15
     working_dir: /workspace
     env_file:
       - .env
     volumes:
       - .:/workspace
-      - pnpm-store:/root/.local/share/pnpm/store
+      - bun-cache:/root/.bun/install/cache
     ports:
       - "8787:8787"
     depends_on:
@@ -293,26 +298,26 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    command: bash -lc "corepack enable && pnpm install && pnpm --filter @nailly/api dev"
+    command: sh -lc "bun install && bun --filter @nailly/api dev"
 
   web:
-    image: node:22-bookworm
+    image: oven/bun:1.2.15
     working_dir: /workspace
     env_file:
       - .env
     volumes:
       - .:/workspace
-      - pnpm-store:/root/.local/share/pnpm/store
+      - bun-cache:/root/.bun/install/cache
     ports:
       - "3000:3000"
     depends_on:
       - api
-    command: bash -lc "corepack enable && pnpm install && pnpm --filter @nailly/web dev --host 0.0.0.0 --port 3000"
+    command: sh -lc "bun install && bun --filter @nailly/web dev -- --host 0.0.0.0 --port 3000"
 
 volumes:
   postgres-data:
   minio-data:
-  pnpm-store:
+  bun-cache:
 ```
 
 - [ ] **Step 6: Verify Compose parses**
@@ -329,7 +334,7 @@ Expected: command exits with code `0` and prints the expanded service configurat
 - [ ] **Step 7: Commit**
 
 ```bash
-git add package.json pnpm-workspace.yaml tsconfig.base.json .env.example .dockerignore docker-compose.yml .gitignore
+git add package.json tsconfig.base.json .env.example .dockerignore docker-compose.yml .gitignore
 git commit -m "chore: add dockerized monorepo baseline"
 ```
 
@@ -365,6 +370,7 @@ Create `packages/shared/package.json`:
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.0",
     "@types/node": "^22.15.0",
     "typescript": "^5.8.0",
     "vitest": "^3.1.0"
@@ -450,8 +456,8 @@ describe('shared schemas', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm install
-docker compose run --rm tooling pnpm --filter @nailly/shared test
+docker compose run --rm tooling bun install
+docker compose run --rm tooling bun --filter @nailly/shared test
 ```
 
 Expected: FAIL because `packages/shared/src/schemas.ts` does not exist.
@@ -552,8 +558,8 @@ export * from './schemas'
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/shared test
-docker compose run --rm tooling pnpm --filter @nailly/shared lint
+docker compose run --rm tooling bun --filter @nailly/shared test
+docker compose run --rm tooling bun --filter @nailly/shared lint
 ```
 
 Expected: PASS for tests and `tsc --noEmit`.
@@ -590,13 +596,13 @@ Create `apps/api/package.json`:
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "bun --watch src/server.ts",
+    "start": "bun dist/server.js",
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "build": "tsc --outDir dist",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "bun src/db/seed.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.5.0",
@@ -611,9 +617,9 @@ Create `apps/api/package.json`:
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.0",
     "@types/node": "^22.15.0",
     "drizzle-kit": "^0.31.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "vitest": "^3.1.0"
   }
@@ -679,8 +685,8 @@ describe('api foundation', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm install
-docker compose run --rm tooling pnpm --filter @nailly/api test
+docker compose run --rm tooling bun install
+docker compose run --rm tooling bun --filter @nailly/api test
 ```
 
 Expected: FAIL because `apps/api/src/app.ts` does not exist.
@@ -786,24 +792,17 @@ export function createApp() {
 Create `apps/api/src/server.ts`:
 
 ```ts
-import { serve } from '@hono/node-server'
 import { createApp } from './app'
 import { loadEnv } from './config/env'
 
 const env = loadEnv()
 
-serve({
-  fetch: createApp().fetch,
-  port: env.API_PORT
+const server = Bun.serve({
+  port: env.API_PORT,
+  fetch: createApp().fetch
 })
 
-console.log(`Nailly API listening on http://localhost:${env.API_PORT}`)
-```
-
-Add `@hono/node-server` to `apps/api/package.json` dependencies:
-
-```json
-"@hono/node-server": "^1.14.0"
+console.log(`Nailly API listening on http://localhost:${server.port}`)
 ```
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -811,9 +810,9 @@ Add `@hono/node-server` to `apps/api/package.json` dependencies:
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm install
-docker compose run --rm tooling pnpm --filter @nailly/api test
-docker compose run --rm tooling pnpm --filter @nailly/api lint
+docker compose run --rm tooling bun install
+docker compose run --rm tooling bun --filter @nailly/api test
+docker compose run --rm tooling bun --filter @nailly/api lint
 ```
 
 Expected: PASS for tests and `tsc --noEmit`.
@@ -867,7 +866,7 @@ describe('demo seed data', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/db/seed-data.test.ts
+docker compose run --rm tooling bun --filter @nailly/api test src/db/seed-data.test.ts
 ```
 
 Expected: FAIL because `seed-data.ts` does not exist.
@@ -1189,9 +1188,9 @@ Run:
 
 ```bash
 docker compose up -d postgres redis minio minio-init
-docker compose run --rm tooling pnpm --filter @nailly/api test src/db/seed-data.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/api db:push
-docker compose run --rm tooling pnpm --filter @nailly/api db:seed
+docker compose run --rm tooling bun --filter @nailly/api test src/db/seed-data.test.ts
+docker compose run --rm tooling bun --filter @nailly/api db:push
+docker compose run --rm tooling bun --filter @nailly/api db:seed
 ```
 
 Expected: tests PASS, Drizzle push succeeds, seed logs one shop, six services, three staff, and three admin users.
@@ -1260,7 +1259,7 @@ describe('PublicSiteService', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/public-site.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api test src/services/public-site.service.test.ts
 ```
 
 Expected: FAIL because `public-site.service.ts` does not exist.
@@ -1382,8 +1381,8 @@ app.route('/public', publicRoutes())
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/public-site.service.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/api lint
+docker compose run --rm tooling bun --filter @nailly/api test src/services/public-site.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api lint
 ```
 
 Expected: PASS.
@@ -1438,7 +1437,7 @@ describe('buildTimeSlots', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/availability.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api test src/services/availability.service.test.ts
 ```
 
 Expected: FAIL because `availability.service.ts` does not exist.
@@ -1547,7 +1546,7 @@ describe('BookingService', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/booking.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api test src/services/booking.service.test.ts
 ```
 
 Expected: FAIL because `booking.service.ts` does not exist.
@@ -1619,8 +1618,8 @@ Modify `apps/api/src/routes/public.ts`:
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/availability.service.test.ts src/services/booking.service.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/api lint
+docker compose run --rm tooling bun --filter @nailly/api test src/services/availability.service.test.ts src/services/booking.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api lint
 ```
 
 Expected: PASS.
@@ -1763,8 +1762,8 @@ app.route('/auth', authRoutes())
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/http/rbac.test.ts src/services/auth.service.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/api lint
+docker compose run --rm tooling bun --filter @nailly/api test src/http/rbac.test.ts src/services/auth.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api lint
 ```
 
 Expected: PASS.
@@ -1818,7 +1817,7 @@ describe('adminRoutes', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/routes/admin.test.ts
+docker compose run --rm tooling bun --filter @nailly/api test src/routes/admin.test.ts
 ```
 
 Expected: FAIL because `apps/api/src/routes/admin.ts` does not exist.
@@ -1888,8 +1887,8 @@ app.route('/admin', adminRoutes())
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/routes/admin.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/api lint
+docker compose run --rm tooling bun --filter @nailly/api test src/routes/admin.test.ts
+docker compose run --rm tooling bun --filter @nailly/api lint
 ```
 
 Expected: PASS.
@@ -1941,7 +1940,7 @@ describe('assertSupportedImage', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/media.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api test src/services/media.service.test.ts
 ```
 
 Expected: FAIL because `media.service.ts` does not exist.
@@ -1994,8 +1993,8 @@ Allowed roles: `manager`, `owner`.
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/api test src/services/media.service.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/api lint
+docker compose run --rm tooling bun --filter @nailly/api test src/services/media.service.test.ts
+docker compose run --rm tooling bun --filter @nailly/api lint
 ```
 
 Expected: PASS.
@@ -2058,6 +2057,7 @@ Create `apps/web/package.json`:
   },
   "devDependencies": {
     "@nuxt/test-utils": "latest",
+    "@types/bun": "^1.2.0",
     "@types/node": "^22.15.0",
     "typescript": "^5.8.0",
     "vitest": "^3.1.0",
@@ -2086,8 +2086,8 @@ describe('buildApiUrl', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm install
-docker compose run --rm tooling pnpm --filter @nailly/web test
+docker compose run --rm tooling bun install
+docker compose run --rm tooling bun --filter @nailly/web test
 ```
 
 Expected: FAIL because `apps/web/utils/api-url.ts` does not exist.
@@ -2214,8 +2214,8 @@ Create `apps/web/middleware/admin-auth.ts` that redirects unauthenticated users 
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/web test
-docker compose run --rm tooling pnpm --filter @nailly/web lint
+docker compose run --rm tooling bun --filter @nailly/web test
+docker compose run --rm tooling bun --filter @nailly/web lint
 ```
 
 Expected: PASS.
@@ -2258,7 +2258,7 @@ describe('formatPrice', () => {
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/web test tests/landing-content.test.ts
+docker compose run --rm tooling bun --filter @nailly/web test tests/landing-content.test.ts
 ```
 
 Expected: FAIL because `utils/format.ts` does not exist.
@@ -2302,8 +2302,8 @@ Use real seeded content from the API. Use restrained, polished nail-salon stylin
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/web test tests/landing-content.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/web build
+docker compose run --rm tooling bun --filter @nailly/web test tests/landing-content.test.ts
+docker compose run --rm tooling bun --filter @nailly/web build
 ```
 
 Expected: tests PASS and Nuxt build exits with code `0`.
@@ -2407,8 +2407,8 @@ Create `pages/booking.vue` with a focused layout: form on the left, compact shop
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/web test tests/booking-form.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/web build
+docker compose run --rm tooling bun --filter @nailly/web test tests/booking-form.test.ts
+docker compose run --rm tooling bun --filter @nailly/web build
 ```
 
 Expected: tests PASS and Nuxt build exits with code `0`.
@@ -2515,8 +2515,8 @@ Use Nuxt UI form controls, icons for actions, and restrained dashboard density. 
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm --filter @nailly/web test tests/admin-nav.test.ts
-docker compose run --rm tooling pnpm --filter @nailly/web build
+docker compose run --rm tooling bun --filter @nailly/web test tests/admin-nav.test.ts
+docker compose run --rm tooling bun --filter @nailly/web build
 ```
 
 Expected: tests PASS and Nuxt build exits with code `0`.
@@ -2550,16 +2550,16 @@ Full-stack nail salon booking MVP with Nuxt, Hono, PostgreSQL, Redis, MinIO, and
 - Docker
 - Docker Compose
 
-Node and pnpm are run inside Docker.
+Bun is used for JavaScript tooling. Docker Compose runs infrastructure services and can run Bun via the tooling container when needed.
 
 ## Local Setup
 
 ```bash
 cp .env.example .env
-docker compose run --rm tooling pnpm install
+docker compose run --rm tooling bun install
 docker compose up -d postgres redis minio minio-init
-docker compose run --rm tooling pnpm --filter @nailly/api db:push
-docker compose run --rm tooling pnpm --filter @nailly/api db:seed
+docker compose run --rm tooling bun --filter @nailly/api db:push
+docker compose run --rm tooling bun --filter @nailly/api db:seed
 docker compose up api web
 ```
 
@@ -2576,9 +2576,9 @@ MinIO console: http://localhost:9001
 ## Verification
 
 ```bash
-docker compose run --rm tooling pnpm -r test
-docker compose run --rm tooling pnpm -r lint
-docker compose run --rm tooling pnpm -r build
+docker compose run --rm tooling bun --filter '*' test
+docker compose run --rm tooling bun --filter '*' lint
+docker compose run --rm tooling bun --filter '*' build
 ```
 ```
 
@@ -2587,9 +2587,9 @@ docker compose run --rm tooling pnpm -r build
 Run:
 
 ```bash
-docker compose run --rm tooling pnpm -r test
-docker compose run --rm tooling pnpm -r lint
-docker compose run --rm tooling pnpm -r build
+docker compose run --rm tooling bun --filter '*' test
+docker compose run --rm tooling bun --filter '*' lint
+docker compose run --rm tooling bun --filter '*' build
 docker compose up -d postgres redis minio minio-init api web
 curl -fsS http://localhost:8787/health
 curl -fsS http://localhost:8787/public/site
@@ -2620,7 +2620,7 @@ Expected:
 - [ ] **Step 4: Commit docs and verification fixes**
 
 ```bash
-git add README.md apps packages docker-compose.yml package.json pnpm-workspace.yaml
+git add README.md apps packages docker-compose.yml package.json
 git commit -m "docs: add local setup and verification"
 ```
 
@@ -2640,5 +2640,5 @@ git commit -m "docs: add local setup and verification"
 - [ ] Redis caches public site data.
 - [ ] MinIO stores uploaded media.
 - [ ] Seed data creates a complete demo salon.
-- [ ] Docker Compose can run the stack without host Node.
+- [ ] Docker Compose can run the stack without pnpm; JavaScript tooling uses Bun.
 - [ ] Tests, typecheck/lint, and builds pass through Docker.
