@@ -8,27 +8,29 @@ import { demoSeed } from './seed-data'
 
 const env = loadEnv()
 
-const minioClient = new Minio.Client({
-  endPoint: env.MINIO_ENDPOINT,
-  port: env.MINIO_PORT,
-  useSSL: env.MINIO_USE_SSL,
-  accessKey: env.MINIO_ACCESS_KEY,
-  secretKey: env.MINIO_SECRET_KEY
-})
+function createMinioClient() {
+  return new Minio.Client({
+    endPoint: env.MINIO_ENDPOINT,
+    port: env.MINIO_PORT,
+    useSSL: env.MINIO_USE_SSL,
+    accessKey: env.MINIO_ACCESS_KEY,
+    secretKey: env.MINIO_SECRET_KEY
+  })
+}
 
 const demoPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
   'base64'
 )
 
-async function ensureBucket() {
-  const exists = await minioClient.bucketExists(env.MINIO_BUCKET)
+async function ensureBucket(mc: Minio.Client) {
+  const exists = await mc.bucketExists(env.MINIO_BUCKET)
   if (!exists) {
-    await minioClient.makeBucket(env.MINIO_BUCKET)
+    await mc.makeBucket(env.MINIO_BUCKET)
   }
 }
 
-async function seedMediaObjects(db: ReturnType<typeof createDb>['db']) {
+async function seedMediaObjects(mc: Minio.Client, db: ReturnType<typeof createDb>['db']) {
   for (const item of demoSeed.media) {
     const existing = await db
       .select({ id: schema.mediaAssets.id })
@@ -38,7 +40,7 @@ async function seedMediaObjects(db: ReturnType<typeof createDb>['db']) {
 
     if (existing.length > 0) continue
 
-    await minioClient.putObject(env.MINIO_BUCKET, item.key, demoPng, demoPng.length, {
+    await mc.putObject(env.MINIO_BUCKET, item.key, demoPng, demoPng.length, {
       'Content-Type': item.contentType
     })
 
@@ -65,9 +67,14 @@ function timeToMinutes(time: string): number {
 async function seed() {
   const { client, db } = createDb()
 
+  // Small delay to ensure MinIO is ready after init
+  await new Promise((r) => setTimeout(r, 2000))
+
+  const mc = createMinioClient()
+
   // Ensure MinIO bucket exists and seed media
-  await ensureBucket()
-  await seedMediaObjects(db)
+  await ensureBucket(mc)
+  await seedMediaObjects(mc, db)
 
   // Clear tables in dependency order
   await db.delete(schema.bookingServices)
@@ -86,7 +93,7 @@ async function seed() {
   console.log('Inserted: 1 shop')
 
   // Insert media (re-insert after delete)
-  await seedMediaObjects(db)
+  await seedMediaObjects(mc, db)
   console.log(`Inserted: ${demoSeed.media.length} media assets`)
 
   // Insert categories

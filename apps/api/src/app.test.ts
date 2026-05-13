@@ -8,7 +8,7 @@ process.env.MINIO_PORT = '9000'
 process.env.MINIO_ACCESS_KEY = 'nailly'
 process.env.MINIO_SECRET_KEY = 'nailly-password'
 process.env.MINIO_BUCKET = 'nailly-media'
-process.env.MINIO_PUBLIC_URL = 'http://localhost:9000/nailly-media'
+process.env.MINIO_PUBLIC_URL = 'http://localhost:9100/nailly-media'
 process.env.AUTH_JWT_SECRET = 'a-very-long-local-secret-for-testing'
 
 import { createApp } from './app'

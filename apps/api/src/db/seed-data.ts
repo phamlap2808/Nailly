@@ -26,7 +26,7 @@ export const demoSeed = {
   media: [
     {
       key: 'demo/gallery-soft-pink-manicure.jpg',
-      publicUrl: 'http://localhost:9000/nailly-media/demo/gallery-soft-pink-manicure.jpg',
+      publicUrl: 'http://localhost:9100/nailly-media/demo/gallery-soft-pink-manicure.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 118000,
       altText: 'Soft pink gel manicure',
@@ -34,7 +34,7 @@ export const demoSeed = {
     },
     {
       key: 'demo/gallery-minimal-nail-art.jpg',
-      publicUrl: 'http://localhost:9000/nailly-media/demo/gallery-minimal-nail-art.jpg',
+      publicUrl: 'http://localhost:9100/nailly-media/demo/gallery-minimal-nail-art.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 124000,
       altText: 'Minimal line nail art',
@@ -42,7 +42,7 @@ export const demoSeed = {
     },
     {
       key: 'demo/service-gel-manicure.jpg',
-      publicUrl: 'http://localhost:9000/nailly-media/demo/service-gel-manicure.jpg',
+      publicUrl: 'http://localhost:9100/nailly-media/demo/service-gel-manicure.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 103000,
       altText: 'Gel manicure service',
@@ -50,7 +50,7 @@ export const demoSeed = {
     },
     {
       key: 'demo/staff-maya.jpg',
-      publicUrl: 'http://localhost:9000/nailly-media/demo/staff-maya.jpg',
+      publicUrl: 'http://localhost:9100/nailly-media/demo/staff-maya.jpg',
       contentType: 'image/jpeg',
       sizeBytes: 98000,
       altText: 'Maya, senior nail artist',

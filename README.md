@@ -22,7 +22,7 @@ docker compose up api web
 
 Web: http://localhost:3000
 API health: http://localhost:8787/health
-MinIO console: http://localhost:9001
+MinIO console: http://localhost:9101
 
 ## Demo Admin Accounts
 

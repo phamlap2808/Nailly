@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: nailly
       POSTGRES_DB: nailly
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -32,8 +32,8 @@ services:
       MINIO_ROOT_USER: nailly
       MINIO_ROOT_PASSWORD: nailly-password
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9100:9000"
+      - "9101:9001"
     volumes:
       - minio-data:/data
 

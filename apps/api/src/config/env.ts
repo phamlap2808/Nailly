@@ -8,7 +8,10 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().url(),
   MINIO_ENDPOINT: z.string().min(1),
   MINIO_PORT: z.coerce.number().int().positive(),
-  MINIO_USE_SSL: z.coerce.boolean().default(false),
+  MINIO_USE_SSL: z.preprocess(
+    (v) => (v === 'true' || v === '1' ? true : v === 'false' || v === '0' ? false : v),
+    z.boolean().default(false)
+  ),
   MINIO_ACCESS_KEY: z.string().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().min(1),
