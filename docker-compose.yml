@@ -75,7 +75,7 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    command: sh -lc "bun install && bun --filter @nailly/api dev"
+    command: sh -lc "bun --filter @nailly/api dev"
 
   web:
     image: oven/bun:1.2.15
@@ -89,7 +89,7 @@ services:
       - "3000:3000"
     depends_on:
       - api
-    command: sh -lc "bun install && bun --filter @nailly/web dev -- --host 0.0.0.0 --port 3000"
+    command: sh -lc "bun --filter @nailly/web dev -- --host 0.0.0.0 --port 3000"
 
 volumes:
   postgres-data:

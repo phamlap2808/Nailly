@@ -8,8 +8,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@nuxt/ui',
     '@pinia/nuxt',
-    '@nuxtjs/i18n',
-    '@nuxtjs/seo'
+    '@nuxtjs/i18n'
   ],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {

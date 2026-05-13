@@ -19,7 +19,6 @@
     "@nuxt/image": "latest",
     "@nuxt/ui": "latest",
     "@nuxtjs/i18n": "latest",
-    "@nuxtjs/seo": "latest",
     "@pinia/nuxt": "latest",
     "@nailly/shared": "workspace:*",
     "nuxt": "latest",
