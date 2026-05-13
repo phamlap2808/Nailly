@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { ApiError, errorResponse } from './http/errors'
+import { authRoutes } from './routes/auth'
 import { publicRoutes } from './routes/public'
 
 export function createApp() {
@@ -17,6 +18,7 @@ export function createApp() {
   app.get('/health', (c) => c.json({ ok: true, service: 'nailly-api' }))
 
   app.route('/public', publicRoutes())
+  app.route('/auth', authRoutes())
 
   app.notFound(() =>
     errorResponse(new ApiError(404, 'not_found', 'The requested resource was not found.'))
