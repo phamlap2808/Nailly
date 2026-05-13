@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { adminNavItems } from '~/utils/admin-nav'
+import { adminNavItems } from '../utils/admin-nav'
 import type { AdminRole } from '@nailly/shared'
 
 const session = useSessionStore()

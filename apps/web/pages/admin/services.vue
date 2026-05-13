@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatPrice } from '~/utils/format'
+import { formatPrice } from '../../utils/format'
 
 definePageMeta({
   middleware: 'admin-auth',

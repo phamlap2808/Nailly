@@ -78,7 +78,14 @@ const whyReasons = [
   { title: 'Hygienic Standards', text: 'All tools are sterilized and stations sanitized between each client.' }
 ]
 
-const { data: site } = await useFetch('/public/site', {
+interface SitePayload {
+  shop: { name: string; tagline: string; address: string; phone: string; seoDescription: string } | null
+  services: Array<{ id: string; name: string; description: string; durationMins: number; priceCents: number }> | null
+  gallery: Array<{ publicUrl: string; altText: string | null }> | null
+  staff: Array<{ id: string; name: string; title: string }> | null
+}
+
+const { data: site } = await useFetch<SitePayload>('/public/site', {
   baseURL: useRuntimeConfig().public.apiBaseUrl
 })
 

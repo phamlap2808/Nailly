@@ -30,7 +30,7 @@ staff@lumanails.example / staff-password</pre>
 </template>
 
 <script setup lang="ts">
-import type { AdminProfile } from '~/stores/session'
+import type { AdminProfile } from '../../stores/session'
 
 definePageMeta({
   layout: false
