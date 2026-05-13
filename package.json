@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "docker compose up --build",
-    "install": "bun install",
+    "setup": "bun install",
     "test": "bun --filter '*' test",
     "lint": "bun --filter '*' lint",
     "build": "bun --filter '*' build",
