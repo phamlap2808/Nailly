@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { ApiError, errorResponse } from './http/errors'
+import { adminRoutes } from './routes/admin'
 import { authRoutes } from './routes/auth'
 import { publicRoutes } from './routes/public'
 
@@ -19,6 +20,7 @@ export function createApp() {
 
   app.route('/public', publicRoutes())
   app.route('/auth', authRoutes())
+  app.route('/admin', adminRoutes())
 
   app.notFound(() =>
     errorResponse(new ApiError(404, 'not_found', 'The requested resource was not found.'))
