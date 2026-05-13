@@ -1,0 +1,22 @@
+{
+  "name": "nailly",
+  "private": true,
+  "packageManager": "bun@1.2.15",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "docker compose up --build",
+    "install": "bun install",
+    "test": "bun --filter '*' test",
+    "lint": "bun --filter '*' lint",
+    "build": "bun --filter '*' build",
+    "db:push": "bun --filter @nailly/api db:push",
+    "db:seed": "bun --filter @nailly/api db:seed",
+    "docker:install": "docker compose run --rm tooling bun install",
+    "docker:test": "docker compose run --rm tooling bun --filter '*' test",
+    "docker:lint": "docker compose run --rm tooling bun --filter '*' lint",
+    "docker:build": "docker compose run --rm tooling bun --filter '*' build"
+  }
+}
