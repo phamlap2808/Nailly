@@ -8,6 +8,8 @@ import { canAccessRole } from '../http/rbac'
 import { createAdminRepository } from '../repositories/admin.repository'
 import { RedisJsonCache } from '../cache/redis'
 import { createAdminService } from '../services/admin.service'
+import { assertSupportedImage } from '../services/media.service'
+import { createMinioStorage } from '../storage/minio'
 
 type AdminEnv = { Variables: { adminUser: AdminProfile } }
 
@@ -24,7 +26,7 @@ export function adminRoutes(
     const token = getCookie(c, env.AUTH_COOKIE_NAME)
 
     if (!token) {
-      return errorResponse(new ApiError(401, 'unauthenticated', 'Not authenticated.'))
+      return errorResponse(c, new ApiError(401, 'unauthenticated', 'Not authenticated.'))
     }
 
     try {
@@ -32,7 +34,7 @@ export function adminRoutes(
       c.set('adminUser', profile)
       await next()
     } catch {
-      return errorResponse(new ApiError(401, 'unauthenticated', 'Invalid or expired token.'))
+      return errorResponse(c, new ApiError(401, 'unauthenticated', 'Invalid or expired token.'))
     }
   })
 
@@ -41,7 +43,7 @@ export function adminRoutes(
     return async (c, next) => {
       const user = c.get('adminUser')
       if (!user || !canAccessRole(user.role as AdminRole, roles)) {
-        return errorResponse(new ApiError(403, 'forbidden', 'Insufficient permissions.'))
+        return errorResponse(c, new ApiError(403, 'forbidden', 'Insufficient permissions.'))
       }
       await next()
     }
@@ -57,7 +59,7 @@ export function adminRoutes(
   router.get('/bookings/:id', guard('staff'), async (c) => {
     const booking = await service.getBooking(c.req.param('id'))
     if (!booking) {
-      return errorResponse(new ApiError(404, 'not_found', 'Booking not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Booking not found.'))
     }
     return c.json(booking)
   })
@@ -66,7 +68,7 @@ export function adminRoutes(
     const body = await c.req.json()
     const booking = await service.updateBooking(c.req.param('id'), body)
     if (!booking) {
-      return errorResponse(new ApiError(404, 'not_found', 'Booking not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Booking not found.'))
     }
     return c.json(booking)
   })
@@ -75,7 +77,7 @@ export function adminRoutes(
     const { status } = await c.req.json<{ status: string }>()
     const booking = await service.updateBookingStatus(c.req.param('id'), status)
     if (!booking) {
-      return errorResponse(new ApiError(404, 'not_found', 'Booking not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Booking not found.'))
     }
     return c.json(booking)
   })
@@ -96,7 +98,7 @@ export function adminRoutes(
     const body = await c.req.json()
     const result = await service.updateServiceCategory(c.req.param('id'), body)
     if (!result) {
-      return errorResponse(new ApiError(404, 'not_found', 'Category not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Category not found.'))
     }
     return c.json(result)
   })
@@ -117,7 +119,7 @@ export function adminRoutes(
     const body = await c.req.json()
     const result = await service.updateService(c.req.param('id'), body)
     if (!result) {
-      return errorResponse(new ApiError(404, 'not_found', 'Service not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Service not found.'))
     }
     return c.json(result)
   })
@@ -143,7 +145,7 @@ export function adminRoutes(
     const { serviceIds, ...staffData } = body
     const result = await service.updateStaff(c.req.param('id'), staffData)
     if (!result) {
-      return errorResponse(new ApiError(404, 'not_found', 'Staff not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Staff not found.'))
     }
     if (serviceIds && Array.isArray(serviceIds)) {
       await service.setStaffServices(c.req.param('id'), serviceIds)
@@ -184,11 +186,46 @@ export function adminRoutes(
     return c.json(result)
   })
 
+  router.post('/media', guard('manager'), async (c) => {
+    const body = await c.req.parseBody()
+    const file = body.file as File | undefined
+    const altText = (body.altText as string) ?? ''
+    const usageType = (body.usageType as string) ?? 'gallery'
+
+    if (!file) {
+      return errorResponse(c, new ApiError(400, 'bad_request', 'File is required.'))
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+    assertSupportedImage({ contentType: file.type, sizeBytes: file.size })
+
+    const storage = createMinioStorage()
+    const ext = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp'
+    const objectKey = `uploads/${Date.now()}-${crypto.randomUUID()}.${ext}`
+
+    const { publicUrl } = await storage.uploadObject({
+      objectKey,
+      buffer,
+      contentType: file.type
+    })
+
+    const result = await service.createMedia({
+      objectKey,
+      publicUrl,
+      contentType: file.type,
+      sizeBytes: file.size,
+      altText,
+      usageType
+    })
+
+    return c.json(result, 201)
+  })
+
   router.patch('/media/:id', guard('manager'), async (c) => {
     const body = await c.req.json()
     const result = await service.updateMedia(c.req.param('id'), body)
     if (!result) {
-      return errorResponse(new ApiError(404, 'not_found', 'Media not found.'))
+      return errorResponse(c, new ApiError(404, 'not_found', 'Media not found.'))
     }
     return c.json(result)
   })

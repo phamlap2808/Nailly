@@ -31,14 +31,14 @@ export function authRoutes(
     const token = getCookie(c, env.AUTH_COOKIE_NAME)
 
     if (!token) {
-      return errorResponse(new ApiError(401, 'unauthenticated', 'Not authenticated.'))
+      return errorResponse(c, new ApiError(401, 'unauthenticated', 'Not authenticated.'))
     }
 
     try {
       const profile = await verifyAdminToken(token, env.AUTH_JWT_SECRET)
       return c.json(profile)
     } catch {
-      return errorResponse(new ApiError(401, 'unauthenticated', 'Invalid or expired token.'))
+      return errorResponse(c, new ApiError(401, 'unauthenticated', 'Invalid or expired token.'))
     }
   })
 

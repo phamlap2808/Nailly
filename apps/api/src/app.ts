@@ -22,17 +22,17 @@ export function createApp() {
   app.route('/auth', authRoutes())
   app.route('/admin', adminRoutes())
 
-  app.notFound(() =>
-    errorResponse(new ApiError(404, 'not_found', 'The requested resource was not found.'))
+  app.notFound((c) =>
+    errorResponse(c, new ApiError(404, 'not_found', 'The requested resource was not found.'))
   )
 
-  app.onError((error) => {
+  app.onError((error, c) => {
     if (error instanceof ApiError) {
-      return errorResponse(error)
+      return errorResponse(c, error)
     }
 
     console.error(error)
-    return errorResponse(new ApiError(500, 'internal_error', 'An unexpected error occurred.'))
+    return errorResponse(c, new ApiError(500, 'internal_error', 'An unexpected error occurred.'))
   })
 
   return app

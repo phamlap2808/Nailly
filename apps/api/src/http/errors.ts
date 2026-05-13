@@ -1,6 +1,9 @@
+import type { Context } from 'hono'
+import type { StatusCode } from 'hono/utils/http-status'
+
 export class ApiError extends Error {
   constructor(
-    public readonly status: number,
+    public readonly status: StatusCode,
     public readonly code: string,
     message: string,
     public readonly fields?: Record<string, string>
@@ -9,8 +12,8 @@ export class ApiError extends Error {
   }
 }
 
-export function errorResponse(error: ApiError): Response {
-  return new Response(
+export function errorResponse(c: Context, error: ApiError): Response {
+  return c.newResponse(
     JSON.stringify({
       error: {
         code: error.code,
@@ -18,9 +21,7 @@ export function errorResponse(error: ApiError): Response {
         ...(error.fields ? { fields: error.fields } : {})
       }
     }),
-    {
-      status: error.status,
-      headers: { 'Content-Type': 'application/json' }
-    }
+    error.status,
+    { 'Content-Type': 'application/json' }
   )
 }
