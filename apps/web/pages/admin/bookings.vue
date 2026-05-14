@@ -1,9 +1,13 @@
 <template>
   <AdminShell>
-    <div class="page-header">
-      <h1 class="page-heading">Bookings</h1>
-      <select v-model="statusFilter" class="filter-select">
-        <option value="">All</option>
+    <div class="admin-page-header">
+      <div>
+        <p class="eyebrow">Operations</p>
+        <h1 class="display-title">Bookings</h1>
+        <p>Review requests, confirm appointments, and keep the salon day tidy.</p>
+      </div>
+      <select v-model="statusFilter" class="filter-select form-control">
+        <option value="">All bookings</option>
         <option value="pending_confirmation">Pending</option>
         <option value="confirmed">Confirmed</option>
         <option value="completed">Completed</option>
@@ -11,54 +15,89 @@
       </select>
     </div>
 
-    <div v-if="loading" class="loading-state">Loading...</div>
+    <div v-if="loading" class="loading-state surface-panel">Loading bookings...</div>
+    <div v-else-if="!bookings.length" class="empty-state surface-panel">No bookings found.</div>
 
-    <div v-else-if="!bookings.length" class="empty-state">No bookings found.</div>
+    <div v-else class="bookings-panel surface-panel">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="b in bookings" :key="b.id">
+            <td>
+              <strong>{{ b.customerName }}</strong>
+              <span v-if="b.phone">{{ b.phone }}</span>
+            </td>
+            <td>{{ b.appointmentDate }}</td>
+            <td>{{ b.startTime }}</td>
+            <td><span :class="getBookingStatusDisplay(b.status).className">{{ getBookingStatusDisplay(b.status).label }}</span></td>
+            <td>
+              <select
+                v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
+                class="status-action form-control"
+                @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
+              >
+                <option value="">Update...</option>
+                <option value="confirmed">Confirm</option>
+                <option value="completed">Complete</option>
+                <option value="cancelled">Cancel</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-    <table v-else class="data-table">
-      <thead>
-        <tr>
-          <th>Customer</th>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="b in bookings" :key="b.id">
-          <td>{{ b.customerName }}</td>
-          <td>{{ b.appointmentDate }}</td>
-          <td>{{ b.startTime }}</td>
-          <td><span :class="['status-badge', b.status]">{{ b.status }}</span></td>
-          <td>
-            <select
-              v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
-              class="status-action"
-              @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
-            >
-              <option value="">Update...</option>
-              <option value="confirmed">Confirm</option>
-              <option value="completed">Complete</option>
-              <option value="cancelled">Cancel</option>
-            </select>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <div class="booking-cards">
+        <article v-for="b in bookings" :key="`card-${b.id}`" class="booking-card">
+          <div>
+            <strong>{{ b.customerName }}</strong>
+            <span>{{ b.appointmentDate }} at {{ b.startTime }}</span>
+          </div>
+          <span :class="getBookingStatusDisplay(b.status).className">{{ getBookingStatusDisplay(b.status).label }}</span>
+          <select
+            v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
+            class="status-action form-control"
+            @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
+          >
+            <option value="">Update...</option>
+            <option value="confirmed">Confirm</option>
+            <option value="completed">Complete</option>
+            <option value="cancelled">Cancel</option>
+          </select>
+        </article>
+      </div>
+    </div>
   </AdminShell>
 </template>
 
 <script setup lang="ts">
+import { getBookingStatusDisplay } from '../../utils/admin-status'
+
 definePageMeta({
   middleware: 'admin-auth',
   layout: false
 })
 
+interface AdminBooking {
+  id: string
+  customerName: string
+  phone: string
+  appointmentDate: string
+  startTime: string
+  status: string
+}
+
 const config = useRuntimeConfig()
 const baseUrl = config.public.apiBaseUrl
 
-const bookings = ref<any[]>([])
+const bookings = ref<AdminBooking[]>([])
 const loading = ref(true)
 const statusFilter = ref('')
 
@@ -66,7 +105,7 @@ watchEffect(async () => {
   loading.value = true
   try {
     const params = statusFilter.value ? `?status=${statusFilter.value}` : ''
-    bookings.value = await $fetch(`${baseUrl}/admin/bookings${params}`, { credentials: 'include' })
+    bookings.value = await $fetch<AdminBooking[]>(`${baseUrl}/admin/bookings${params}`, { credentials: 'include' })
   } finally {
     loading.value = false
   }
@@ -85,101 +124,123 @@ async function handleStatusChange(id: string, status: string) {
 </script>
 
 <style scoped>
-.page-header {
+.admin-page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 }
 
-.page-heading {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
+.admin-page-header h1 {
+  margin: 0.3rem 0 0;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+.admin-page-header p:not(.eyebrow) {
+  color: var(--color-muted);
+  margin: 0.4rem 0 0;
 }
 
 .filter-select {
-  padding: 0.4rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  background: var(--color-surface);
+  max-width: 210px;
+}
+
+.bookings-panel {
+  overflow: hidden;
 }
 
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  overflow: hidden;
 }
 
 .data-table th,
 .data-table td {
-  padding: 0.7rem 1rem;
-  text-align: left;
-  font-size: 0.9rem;
   border-bottom: 1px solid var(--color-border);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  vertical-align: middle;
 }
 
 .data-table th {
-  font-weight: 600;
-  background: #fafaf9;
+  background: rgba(239, 226, 214, 0.55);
   color: var(--color-muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.status-badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background: #f0f4ff;
-  color: var(--color-primary);
+.data-table td strong,
+.data-table td span {
+  display: block;
 }
 
-.status-badge.confirmed {
-  background: #f0fdf4;
-  color: #16a34a;
-}
-
-.status-badge.completed {
-  background: #f5f5f4;
+.data-table td span:not(.status-badge) {
   color: var(--color-muted);
+  font-size: 0.82rem;
 }
 
-.status-badge.cancelled {
-  background: #fef2f2;
-  color: #dc2626;
+.data-table .status-badge {
+  display: inline-flex;
 }
 
 .status-action {
-  padding: 0.25rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  background: var(--color-surface);
+  min-height: 2.25rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.booking-cards {
+  display: none;
 }
 
 .loading-state,
 .empty-state {
+  padding: 2rem;
   color: var(--color-muted);
-  text-align: center;
-  padding: 3rem;
 }
 
-@media (max-width: 768px) {
-  .data-table {
-    font-size: 0.8rem;
+@media (max-width: 760px) {
+  .admin-page-header {
+    display: grid;
   }
-  .data-table th,
-  .data-table td {
-    padding: 0.5rem 0.5rem;
+
+  .filter-select {
+    max-width: none;
+  }
+
+  .data-table {
+    display: none;
+  }
+
+  .booking-cards {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .booking-card {
+    display: grid;
+    gap: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-surface-strong);
+    padding: 1rem;
+  }
+
+  .booking-card strong,
+  .booking-card span {
+    display: block;
+  }
+
+  .booking-card .status-badge {
+    display: inline-flex;
+    justify-self: start;
+  }
+
+  .booking-card div > span {
+    color: var(--color-muted);
   }
 }
 </style>
