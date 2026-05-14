@@ -21,11 +21,12 @@ export function buildBookingSummary(input: BookingSummaryInput) {
   const totalDuration = selectedServices.reduce((sum, service) => sum + service.durationMins, 0)
   const totalPriceCents = selectedServices.reduce((sum, service) => sum + service.priceCents, 0)
   const remainingCount = selectedServices.length - 1
+  const [firstService] = selectedServices
 
   return {
     selectedServices,
-    serviceLabel: selectedServices.length
-      ? `${selectedServices[0].name}${remainingCount > 0 ? ` + ${remainingCount} more` : ''}`
+    serviceLabel: firstService
+      ? `${firstService.name}${remainingCount > 0 ? ` + ${remainingCount} more` : ''}`
       : 'Choose services',
     durationLabel: totalDuration > 0 ? `${totalDuration} min` : 'Select services',
     totalPriceCents,
