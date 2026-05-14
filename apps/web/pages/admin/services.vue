@@ -8,7 +8,6 @@
       </div>
       <div class="header-actions">
         <button class="btn-secondary" @click="openCreateCategory">Add category</button>
-        <button class="btn-primary" :disabled="!categories.length" @click="openCreate()">Add service</button>
       </div>
     </div>
 

@@ -90,6 +90,8 @@ async function handleLogout() {
 
 .sidebar-nav {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 0.35rem;
   padding: 1rem 0;
   flex: 1;
@@ -102,7 +104,8 @@ async function handleLogout() {
   border-radius: var(--radius-card);
   color: rgba(255, 248, 239, 0.68);
   text-decoration: none;
-  padding: 0.65rem 0.75rem;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.75rem;
   font-size: 0.9rem;
   font-weight: 700;
 }
