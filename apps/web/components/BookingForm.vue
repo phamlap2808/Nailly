@@ -58,7 +58,7 @@
             <span>Time *</span>
             <TimeSlotGrid
               v-model="form.startTime"
-              :slots="availableSlots"
+              :slots="slotTimes"
               :unavailable-slots="unavailableSlots"
               :loading="loadingSlots"
             />
@@ -128,6 +128,7 @@
 import { formatPrice } from '../utils/format'
 import { buildBookingPayload } from '../utils/booking-payload'
 import { buildBookingSummary } from '../utils/booking-summary'
+import { getAvailabilitySlotState, hasAvailableSlot, type AvailabilitySlot } from '../utils/availability-slots'
 import type { CreateBookingInput } from '@nailly/shared'
 
 const config = useRuntimeConfig()
@@ -140,7 +141,6 @@ const props = defineProps<{
 }>()
 
 const today = computed(() => new Date().toISOString().slice(0, 10))
-const unavailableSlots = computed(() => new Set<string>())
 
 const form = reactive({
   customerName: '',
@@ -174,7 +174,10 @@ function toggleService(id: string) {
   else form.serviceIds.splice(idx, 1)
 }
 
-const availableSlots = ref<string[]>([])
+const availableSlots = ref<AvailabilitySlot[]>([])
+const slotState = computed(() => getAvailabilitySlotState(availableSlots.value))
+const slotTimes = computed(() => slotState.value.times)
+const unavailableSlots = computed(() => slotState.value.unavailableSlots)
 const loadingSlots = ref(false)
 
 watch(
@@ -189,9 +192,9 @@ watch(
     try {
       const params = new URLSearchParams({ date, serviceIds: serviceIdsCsv })
       if (staffId) params.set('staffId', staffId)
-      const res = await $fetch<{ slots: string[] }>(`${baseUrl}/public/availability?${params}`)
+      const res = await $fetch<{ slots: AvailabilitySlot[] }>(`${baseUrl}/public/availability?${params}`)
       availableSlots.value = res.slots
-      if (!res.slots.includes(form.startTime ?? '')) {
+      if (!hasAvailableSlot(res.slots, form.startTime)) {
         form.startTime = null
       }
     } catch {

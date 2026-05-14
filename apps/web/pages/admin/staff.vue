@@ -41,11 +41,11 @@
           <span>Bio</span>
           <textarea v-model="form.bio" class="form-control" rows="3" />
         </label>
-        <fieldset class="field service-picker">
+        <fieldset v-if="canEditServiceAssignments" class="field service-picker">
           <legend>Services</legend>
           <div class="service-checks">
             <label v-for="svc in allServices" :key="svc.id" class="checkbox-label">
-              <input v-model="form.serviceIds" type="checkbox" :value="svc.id" />
+              <input v-model="form.serviceIds" type="checkbox" :value="svc.id" @change="serviceIdsTouched = true" />
               <span>{{ svc.name }}</span>
             </label>
           </div>
@@ -64,6 +64,8 @@
 </template>
 
 <script setup lang="ts">
+import { buildStaffSavePayload } from '../../utils/staff-payload'
+
 definePageMeta({
   middleware: 'admin-auth',
   layout: false
@@ -95,6 +97,8 @@ const allServices = ref<AdminService[]>([])
 const loading = ref(true)
 const showModal = ref(false)
 const editing = ref<AdminStaff | null>(null)
+const serviceAssignmentsLoaded = ref(false)
+const serviceIdsTouched = ref(false)
 
 const form = reactive({
   name: '',
@@ -117,6 +121,8 @@ async function fetchData() {
 
 await fetchData()
 
+const canEditServiceAssignments = computed(() => !editing.value || serviceAssignmentsLoaded.value)
+
 function getInitials(name: string) {
   return name
     .split(' ')
@@ -134,6 +140,8 @@ function openCreate() {
   form.bio = ''
   form.active = true
   form.serviceIds = []
+  serviceAssignmentsLoaded.value = true
+  serviceIdsTouched.value = false
   showModal.value = true
 }
 
@@ -143,23 +151,29 @@ function openEdit(staff: AdminStaff) {
   form.title = staff.title
   form.bio = staff.bio ?? ''
   form.active = staff.active
-  form.serviceIds = staff.staffServices?.map((service) => service.serviceId) ?? []
+  serviceAssignmentsLoaded.value = Array.isArray(staff.staffServices)
+  serviceIdsTouched.value = false
+  form.serviceIds = serviceAssignmentsLoaded.value
+    ? staff.staffServices?.map((service) => service.serviceId) ?? []
+    : []
   showModal.value = true
 }
 
 async function handleSave() {
-  const { serviceIds, ...staffData } = form
+  const payload = buildStaffSavePayload(form, {
+    includeServiceIds: !editing.value || serviceAssignmentsLoaded.value || serviceIdsTouched.value
+  })
   if (editing.value) {
     await $fetch(`${baseUrl}/admin/staff/${editing.value.id}`, {
       method: 'PATCH',
       credentials: 'include',
-      body: { ...staffData, serviceIds }
+      body: payload
     })
   } else {
     await $fetch(`${baseUrl}/admin/staff`, {
       method: 'POST',
       credentials: 'include',
-      body: { ...staffData, serviceIds }
+      body: payload
     })
   }
   showModal.value = false

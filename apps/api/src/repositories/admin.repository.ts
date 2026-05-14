@@ -19,9 +19,13 @@ export function createAdminRepository(databaseUrl?: string) {
   return {
     // Bookings
     async listBookings(filters?: { status?: string }) {
-      const conditions = []
       if (filters?.status) {
-        conditions.push(eq(bookings.status, filters.status as any))
+        const status = bookingStatusSchema.parse(filters.status)
+        return db
+          .select()
+          .from(bookings)
+          .where(eq(bookings.status, status))
+          .orderBy(bookings.appointmentDate, bookings.startTime)
       }
       return db.select().from(bookings).orderBy(bookings.appointmentDate, bookings.startTime)
     },
