@@ -4,30 +4,154 @@
       <div>
         <p class="eyebrow">Catalog</p>
         <h1 class="display-title">Services</h1>
-        <p>Keep service names, timing, pricing, and availability ready for public booking.</p>
+        <p>Manage categories and service items in a clear catalog hierarchy.</p>
       </div>
-      <button class="btn-primary" @click="openCreate">Add service</button>
+      <div class="header-actions">
+        <button class="btn-secondary" @click="openCreateCategory">Add category</button>
+        <button class="btn-primary" :disabled="!categories.length" @click="openCreate()">Add service</button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading-state surface-panel">Loading services...</div>
 
-    <template v-else>
-      <div v-for="cat in categories" :key="cat.id" class="category-panel surface-panel">
-        <h2 class="category-name">{{ cat.name }}</h2>
-        <div class="service-list">
-          <div v-for="svc in getServicesForCategory(cat.id)" :key="svc.id" class="service-row">
-            <div>
-              <div class="service-name">{{ svc.name }}</div>
-              <div class="service-meta">{{ svc.durationMinutes }} min / {{ formatPrice(svc.priceCents) }}</div>
-            </div>
-            <div class="service-actions">
-              <span :class="['active-dot', svc.active ? 'on' : 'off']" />
-              <button class="btn-secondary action-btn" @click="openEdit(svc)">Edit</button>
-            </div>
+    <div v-else class="catalog-shell">
+      <aside class="category-tree surface-panel" aria-label="Service categories">
+        <div class="tree-header">
+          <div>
+            <p class="eyebrow">Hierarchy</p>
+            <h2>Categories</h2>
           </div>
         </div>
-      </div>
-    </template>
+
+        <button
+          type="button"
+          :class="['category-node', { selected: selectedCategoryId === 'all' }]"
+          @click="selectedCategoryId = 'all'"
+        >
+          <span class="node-copy">
+            <strong>{{ hierarchy.all.name }}</strong>
+            <small>{{ hierarchy.all.serviceCount }} services</small>
+          </span>
+          <span class="node-count">{{ hierarchy.all.activeServiceCount }} active</span>
+        </button>
+
+        <div class="tree-divider" />
+
+        <button
+          v-for="cat in hierarchy.categories"
+          :key="cat.id"
+          type="button"
+          :class="['category-node', { selected: selectedCategoryId === cat.id, inactive: !cat.active }]"
+          @click="selectedCategoryId = cat.id"
+        >
+          <span class="node-copy">
+            <strong>{{ cat.name }}</strong>
+            <small>{{ cat.serviceCount }} services</small>
+          </span>
+          <span class="node-meta">
+            <span :class="['active-dot', cat.active ? 'on' : 'off']" />
+            <span class="node-count">{{ cat.activeServiceCount }} active</span>
+          </span>
+        </button>
+      </aside>
+
+      <section class="catalog-detail surface-panel">
+        <label class="mobile-category-field">
+          <span>Category</span>
+          <select v-model="selectedCategoryId" class="form-control">
+            <option value="all">All services</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+          </select>
+        </label>
+
+        <div class="detail-header">
+          <div>
+            <p class="eyebrow">{{ selectedNode.isAll ? 'Catalog' : 'Category' }}</p>
+            <h2>{{ selectedNode.name }}</h2>
+            <p>{{ selectedNode.description || 'No description added yet.' }}</p>
+          </div>
+          <div class="detail-actions">
+            <button
+              v-if="!selectedNode.isAll"
+              class="btn-secondary"
+              @click="openEditCategory(selectedNode.id)"
+            >
+              Edit category
+            </button>
+            <button
+              class="btn-primary"
+              :disabled="!categories.length"
+              @click="openCreate(selectedNode.isAll ? undefined : selectedNode.id)"
+            >
+              Add service
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-stats">
+          <div>
+            <span>Total</span>
+            <strong>{{ selectedNode.serviceCount }}</strong>
+          </div>
+          <div>
+            <span>Active</span>
+            <strong>{{ selectedNode.activeServiceCount }}</strong>
+          </div>
+          <div>
+            <span>Inactive</span>
+            <strong>{{ selectedNode.inactiveServiceCount }}</strong>
+          </div>
+        </div>
+
+        <div v-if="!visibleServices.length" class="empty-state">
+          No services in this category yet.
+        </div>
+
+        <div v-else class="service-table" role="table" aria-label="Services">
+          <div class="service-table-head" role="row">
+            <span>Item</span>
+            <span>Duration</span>
+            <span>Price</span>
+            <span>Status</span>
+            <span />
+          </div>
+          <div v-for="svc in visibleServices" :key="svc.id" class="service-row" role="row">
+            <div class="service-main">
+              <strong>{{ svc.name }}</strong>
+              <p>{{ svc.description }}</p>
+            </div>
+            <span class="service-meta">{{ svc.durationMinutes }} min</span>
+            <span class="service-meta">{{ formatPrice(svc.priceCents) }}</span>
+            <span :class="['status-pill', svc.active ? 'status-pill--active' : 'status-pill--inactive']">
+              {{ svc.active ? 'Active' : 'Inactive' }}
+            </span>
+            <button class="btn-secondary action-btn" @click="openEdit(svc)">Edit</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <dialog v-if="showCategoryModal" class="modal-overlay" @click.self="showCategoryModal = false">
+      <form class="modal-card" @submit.prevent="handleSaveCategory">
+        <h2>{{ editingCategory ? 'Edit Category' : 'New Category' }}</h2>
+        <label class="field">
+          <span>Name</span>
+          <input v-model="categoryForm.name" class="form-control" required />
+        </label>
+        <label class="field">
+          <span>Description</span>
+          <textarea v-model="categoryForm.description" class="form-control" rows="3" required />
+        </label>
+        <label class="field checkbox-field">
+          <input v-model="categoryForm.active" type="checkbox" />
+          <span>Active</span>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" @click="showCategoryModal = false">Cancel</button>
+          <button type="submit" class="btn-primary">{{ editingCategory ? 'Update' : 'Create' }}</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <form class="modal-card" @submit.prevent="handleSave">
@@ -71,6 +195,11 @@
 
 <script setup lang="ts">
 import { formatPrice } from '../../utils/format'
+import {
+  buildServiceHierarchy,
+  getSelectedCategoryNode,
+  getServicesForCategorySelection
+} from '../../utils/admin-service-hierarchy'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -80,6 +209,8 @@ definePageMeta({
 interface ServiceCategory {
   id: string
   name: string
+  description: string
+  active: boolean
 }
 
 interface AdminService {
@@ -99,7 +230,10 @@ const categories = ref<ServiceCategory[]>([])
 const services = ref<AdminService[]>([])
 const loading = ref(true)
 const showModal = ref(false)
+const showCategoryModal = ref(false)
 const editing = ref<AdminService | null>(null)
+const editingCategory = ref<ServiceCategory | null>(null)
+const selectedCategoryId = ref('all')
 
 const form = reactive({
   name: '',
@@ -110,9 +244,15 @@ const form = reactive({
   active: true
 })
 
-function getServicesForCategory(catId: string) {
-  return services.value.filter((s) => s.categoryId === catId)
-}
+const categoryForm = reactive({
+  name: '',
+  description: '',
+  active: true
+})
+
+const hierarchy = computed(() => buildServiceHierarchy(categories.value, services.value))
+const selectedNode = computed(() => getSelectedCategoryNode(hierarchy.value, selectedCategoryId.value))
+const visibleServices = computed(() => getServicesForCategorySelection(services.value, selectedNode.value.id))
 
 async function fetchData() {
   loading.value = true
@@ -122,16 +262,19 @@ async function fetchData() {
   ])
   categories.value = cats
   services.value = svcs
+  if (selectedCategoryId.value !== 'all' && !cats.some((cat) => cat.id === selectedCategoryId.value)) {
+    selectedCategoryId.value = 'all'
+  }
   loading.value = false
 }
 
 await fetchData()
 
-function openCreate() {
+function openCreate(defaultCategoryId?: string) {
   editing.value = null
   form.name = ''
   form.description = ''
-  form.categoryId = categories.value[0]?.id ?? ''
+  form.categoryId = defaultCategoryId ?? categories.value[0]?.id ?? ''
   form.durationMinutes = 30
   form.priceCents = 0
   form.active = true
@@ -149,6 +292,44 @@ function openEdit(svc: AdminService) {
   showModal.value = true
 }
 
+function openCreateCategory() {
+  editingCategory.value = null
+  categoryForm.name = ''
+  categoryForm.description = ''
+  categoryForm.active = true
+  showCategoryModal.value = true
+}
+
+function openEditCategory(categoryId: string) {
+  const category = categories.value.find((cat) => cat.id === categoryId)
+  if (!category) return
+  editingCategory.value = category
+  categoryForm.name = category.name
+  categoryForm.description = category.description
+  categoryForm.active = category.active
+  showCategoryModal.value = true
+}
+
+async function handleSaveCategory() {
+  const payload = { ...categoryForm, sortOrder: categories.value.length + 1 }
+  if (editingCategory.value) {
+    await $fetch(`${baseUrl}/admin/service-categories/${editingCategory.value.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      body: categoryForm
+    })
+  } else {
+    const created = await $fetch<ServiceCategory>(`${baseUrl}/admin/service-categories`, {
+      method: 'POST',
+      credentials: 'include',
+      body: payload
+    })
+    selectedCategoryId.value = created.id
+  }
+  showCategoryModal.value = false
+  await fetchData()
+}
+
 async function handleSave() {
   const payload = { ...form }
   if (editing.value) {
@@ -164,6 +345,7 @@ async function handleSave() {
       body: payload
     })
   }
+  selectedCategoryId.value = form.categoryId
   showModal.value = false
   await fetchData()
 }
@@ -187,50 +369,230 @@ async function handleSave() {
   margin: 0.4rem 0 0;
 }
 
-.category-panel {
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-.category-name {
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin: 0 0 0.75rem;
-}
-
-.service-list {
-  display: grid;
-}
-
-.service-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-  border-top: 1px solid var(--color-border);
-  padding: 0.9rem 0;
-}
-
-.service-row:first-child {
-  border-top: none;
-}
-
-.service-name {
-  font-weight: 800;
-}
-
-.service-meta {
-  color: var(--color-muted);
-  font-size: 0.85rem;
-}
-
-.service-actions {
+.header-actions,
+.detail-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.catalog-shell {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.category-tree,
+.catalog-detail {
+  padding: 1rem;
+}
+
+.category-tree {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tree-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.35rem;
+}
+
+.tree-header h2 {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+}
+
+.category-node {
+  width: 100%;
+  min-height: 4rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-card);
+  background: transparent;
+  color: var(--color-ink);
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-node:hover,
+.category-node.selected {
+  border-color: var(--color-border);
+  background: var(--color-surface-strong);
+}
+
+.category-node.selected {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.category-node.inactive {
+  color: var(--color-muted);
+}
+
+.node-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.node-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-copy small,
+.node-count {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.node-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tree-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.25rem 0;
+}
+
+.mobile-category-field {
+  display: none;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 1rem;
+}
+
+.detail-header h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.45rem;
+}
+
+.detail-header p:not(.eyebrow) {
+  color: var(--color-muted);
+  margin: 0.35rem 0 0;
+}
+
+.detail-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.detail-stats div {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-strong);
+  padding: 0.75rem;
+}
+
+.detail-stats span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detail-stats strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  margin-top: 0.25rem;
+}
+
+.service-table {
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.service-table-head,
+.service-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) 100px 100px 100px auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+}
+
+.service-table-head {
+  background: rgba(239, 226, 214, 0.55);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.service-row {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-strong);
+}
+
+.service-row:first-of-type {
+  border-top: none;
+}
+
+.service-main {
+  min-width: 0;
+}
+
+.service-main strong {
+  display: block;
+  font-weight: 850;
+}
+
+.service-main p {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0.2rem 0 0;
+}
+
+.service-meta {
+  color: var(--color-ink-soft);
+  font-weight: 800;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.6rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.status-pill--active {
+  background: #e6f0e7;
+  color: var(--color-success);
+}
+
+.status-pill--inactive {
+  background: #ede9e3;
+  color: var(--color-muted);
 }
 
 .active-dot {
@@ -242,6 +604,10 @@ async function handleSave() {
 
 .active-dot.on {
   background: var(--color-success);
+}
+
+.active-dot.off {
+  background: var(--color-muted);
 }
 
 .action-btn {
@@ -282,7 +648,8 @@ async function handleSave() {
 }
 
 .field span,
-.field legend {
+.field legend,
+.mobile-category-field span {
   color: var(--color-ink-soft);
   font-size: 0.85rem;
   font-weight: 700;
@@ -310,23 +677,66 @@ async function handleSave() {
   margin-top: 1rem;
 }
 
-.loading-state {
+.loading-state,
+.empty-state {
   color: var(--color-muted);
   padding: 2rem;
 }
 
+.empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-card);
+  margin-top: 1rem;
+}
+
+@media (max-width: 980px) {
+  .catalog-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .category-tree {
+    position: static;
+  }
+
+  .service-table-head {
+    display: none;
+  }
+
+  .service-row {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .action-btn {
+    justify-self: start;
+  }
+}
+
 @media (max-width: 640px) {
   .admin-page-header,
-  .service-row {
+  .header-actions,
+  .detail-header,
+  .detail-actions,
+  .modal-actions {
     display: grid;
     grid-template-columns: 1fr;
   }
 
-  .field-row {
-    display: grid;
+  .category-tree {
+    display: none;
   }
 
-  .modal-actions {
+  .mobile-category-field {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+  }
+
+  .detail-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .field-row {
     display: grid;
   }
 }
