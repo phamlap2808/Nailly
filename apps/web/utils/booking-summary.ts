@@ -1,7 +1,7 @@
 interface SummaryService {
   id: string
   name: string
-  durationMins: number
+  durationMinutes: number
   priceCents: number
 }
 
@@ -18,7 +18,7 @@ export function buildBookingSummary(input: BookingSummaryInput) {
     .map((id) => input.services.find((service) => service.id === id))
     .filter((service): service is SummaryService => Boolean(service))
 
-  const totalDuration = selectedServices.reduce((sum, service) => sum + service.durationMins, 0)
+  const totalDuration = selectedServices.reduce((sum, service) => sum + service.durationMinutes, 0)
   const totalPriceCents = selectedServices.reduce((sum, service) => sum + service.priceCents, 0)
   const remainingCount = selectedServices.length - 1
   const [firstService] = selectedServices

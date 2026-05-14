@@ -1,107 +1,146 @@
 <template>
-  <form class="booking-form" @submit.prevent="handleSubmit">
-    <!-- Success -->
-    <div v-if="success" class="form-success">{{ $t('booking.success') }}</div>
+  <div class="booking-layout">
+    <form class="booking-form surface-panel" @submit.prevent="handleSubmit">
+      <div v-if="success" class="form-success">{{ $t('booking.success') }}</div>
+      <div v-if="error" class="form-error">{{ error }}</div>
 
-    <!-- Error -->
-    <div v-if="error" class="form-error">{{ error }}</div>
+      <div v-if="!success" class="form-fields">
+        <section class="form-section">
+          <div class="section-heading">
+            <span>1</span>
+            <div>
+              <p class="eyebrow">Services</p>
+              <h2>Choose your treatment</h2>
+            </div>
+          </div>
+          <div class="service-options">
+            <label
+              v-for="svc in services"
+              :key="svc.id"
+              :class="['service-option', { selected: form.serviceIds.includes(svc.id) }]"
+            >
+              <input
+                type="checkbox"
+                :value="svc.id"
+                :checked="form.serviceIds.includes(svc.id)"
+                @change="toggleService(svc.id)"
+              />
+              <span>
+                <strong>{{ svc.name }}</strong>
+                <small>{{ svc.durationMinutes }} min · {{ formatPrice(svc.priceCents) }}</small>
+              </span>
+            </label>
+          </div>
+        </section>
 
-    <div v-if="!success" class="form-fields">
-      <!-- Customer name -->
-      <label class="field">
-        <span>Name *</span>
-        <input v-model="form.customerName" type="text" required placeholder="Your full name" />
-      </label>
+        <section class="form-section">
+          <div class="section-heading">
+            <span>2</span>
+            <div>
+              <p class="eyebrow">Schedule</p>
+              <h2>Pick a time</h2>
+            </div>
+          </div>
+          <div class="field-grid">
+            <label class="field">
+              <span>Date *</span>
+              <input v-model="form.appointmentDate" class="form-control" type="date" required :min="today" />
+            </label>
+            <label class="field">
+              <span>Preferred staff</span>
+              <select v-model="form.staffId" class="form-control">
+                <option :value="null">Any available</option>
+                <option v-for="s in staff" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="field">
+            <span>Time *</span>
+            <TimeSlotGrid
+              v-model="form.startTime"
+              :slots="availableSlots"
+              :unavailable-slots="unavailableSlots"
+              :loading="loadingSlots"
+            />
+          </div>
+        </section>
 
-      <!-- Phone -->
-      <label class="field">
-        <span>Phone *</span>
-        <input v-model="form.phone" type="tel" required placeholder="+1 555 0100" />
-      </label>
+        <section class="form-section">
+          <div class="section-heading">
+            <span>3</span>
+            <div>
+              <p class="eyebrow">Details</p>
+              <h2>How can we reach you?</h2>
+            </div>
+          </div>
+          <div class="field-grid">
+            <label class="field">
+              <span>Name *</span>
+              <input v-model="form.customerName" class="form-control" type="text" required placeholder="Your full name" />
+            </label>
+            <label class="field">
+              <span>Phone *</span>
+              <input v-model="form.phone" class="form-control" type="tel" required placeholder="+1 555 0100" />
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input v-model="form.email" class="form-control" type="email" placeholder="Optional" />
+            </label>
+            <label class="field">
+              <span>Party size</span>
+              <select v-model.number="form.partySize" class="form-control">
+                <option v-for="n in 6" :key="n" :value="n">{{ n }}</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>Note</span>
+            <textarea v-model="form.note" class="form-control" rows="3" placeholder="Any special requests..." />
+          </label>
+        </section>
 
-      <!-- Email (optional) -->
-      <label class="field">
-        <span>Email</span>
-        <input v-model="form.email" type="email" placeholder="Optional" />
-      </label>
-
-      <!-- Party size -->
-      <label class="field field-short">
-        <span>Party size</span>
-        <select v-model.number="form.partySize">
-          <option v-for="n in 6" :key="n" :value="n">{{ n }}</option>
-        </select>
-      </label>
-
-      <!-- Services -->
-      <fieldset class="field">
-        <legend>Services *</legend>
-        <label v-for="svc in services" :key="svc.id" class="checkbox-label">
-          <input
-            type="checkbox"
-            :value="svc.id"
-            :checked="form.serviceIds.includes(svc.id)"
-            @change="toggleService(svc.id)"
-          />
-          <span>{{ svc.name }} — {{ svc.durationMins }} min / {{ formatPrice(svc.priceCents) }}</span>
-        </label>
-      </fieldset>
-
-      <!-- Staff (optional) -->
-      <label class="field field-short">
-        <span>Preferred staff</span>
-        <select v-model="form.staffId">
-          <option :value="null">Any available</option>
-          <option v-for="s in staff" :key="s.id" :value="s.id">{{ s.name }}</option>
-        </select>
-      </label>
-
-      <!-- Date -->
-      <label class="field field-short">
-        <span>Date *</span>
-        <input v-model="form.appointmentDate" type="date" required :min="today" />
-      </label>
-
-      <!-- Time slot -->
-      <div class="field">
-        <span>Time *</span>
-        <TimeSlotGrid
-          v-model="form.startTime"
-          :slots="availableSlots"
-          :unavailable-slots="new Set()"
-          :loading="loadingSlots"
-        />
+        <button type="submit" class="btn-primary submit-btn" :disabled="submitting">
+          {{ submitting ? 'Submitting...' : $t('booking.submit') }}
+        </button>
       </div>
+    </form>
 
-      <!-- Note (optional) -->
-      <label class="field">
-        <span>Note</span>
-        <textarea v-model="form.note" rows="2" placeholder="Any special requests..." />
-      </label>
-
-      <!-- Submit -->
-      <button type="submit" class="submit-btn" :disabled="submitting">
-        {{ submitting ? 'Submitting...' : $t('booking.submit') }}
-      </button>
-    </div>
-  </form>
+    <aside class="booking-summary surface-panel">
+      <p class="eyebrow">Your visit</p>
+      <h2>{{ summary.serviceLabel }}</h2>
+      <dl>
+        <div><dt>Duration</dt><dd>{{ summary.durationLabel }}</dd></div>
+        <div><dt>Date</dt><dd>{{ summary.dateLabel }}</dd></div>
+        <div><dt>Time</dt><dd>{{ summary.timeLabel }}</dd></div>
+        <div><dt>Party</dt><dd>{{ summary.partyLabel }}</dd></div>
+        <div><dt>Total</dt><dd>{{ formatPrice(summary.totalPriceCents) }}</dd></div>
+      </dl>
+      <div v-if="shop" class="shop-summary">
+        <strong>{{ shop.name }}</strong>
+        <span v-if="shop.address">{{ shop.address }}</span>
+        <span v-if="shop.phone">{{ shop.phone }}</span>
+      </div>
+    </aside>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { formatPrice } from '../utils/format'
 import { buildBookingPayload } from '../utils/booking-payload'
+import { buildBookingSummary } from '../utils/booking-summary'
 import type { CreateBookingInput } from '@nailly/shared'
 
-const { t } = useI18n()
 const config = useRuntimeConfig()
 const baseUrl = config.public.apiBaseUrl
 
 const props = defineProps<{
-  services: Array<{ id: string; name: string; durationMins: number; priceCents: number }>
+  services: Array<{ id: string; name: string; durationMinutes: number; priceCents: number }>
   staff: Array<{ id: string; name: string }>
+  shop: { name: string; address: string; phone: string } | null
 }>()
 
 const today = computed(() => new Date().toISOString().slice(0, 10))
+const unavailableSlots = computed(() => new Set<string>())
 
 const form = reactive({
   customerName: '',
@@ -115,6 +154,16 @@ const form = reactive({
   note: ''
 })
 
+const summary = computed(() =>
+  buildBookingSummary({
+    services: props.services,
+    selectedServiceIds: form.serviceIds,
+    appointmentDate: form.appointmentDate,
+    startTime: form.startTime,
+    partySize: form.partySize
+  })
+)
+
 const submitting = ref(false)
 const success = ref(false)
 const error = ref('')
@@ -125,21 +174,20 @@ function toggleService(id: string) {
   else form.serviceIds.splice(idx, 1)
 }
 
-// Fetch availability when date or selected services change
 const availableSlots = ref<string[]>([])
 const loadingSlots = ref(false)
 
 watch(
-  () => [form.appointmentDate, form.serviceIds.length, form.staffId] as const,
-  async ([date, serviceCount, staffId]) => {
-    if (!date || serviceCount === 0) {
+  () => [form.appointmentDate, form.serviceIds.join(','), form.staffId] as const,
+  async ([date, serviceIdsCsv, staffId]) => {
+    if (!date || !serviceIdsCsv) {
       availableSlots.value = []
       form.startTime = null
       return
     }
     loadingSlots.value = true
     try {
-      const params = new URLSearchParams({ date, serviceIds: form.serviceIds.join(',') })
+      const params = new URLSearchParams({ date, serviceIds: serviceIdsCsv })
       if (staffId) params.set('staffId', staffId)
       const res = await $fetch<{ slots: string[] }>(`${baseUrl}/public/availability?${params}`)
       availableSlots.value = res.slots
@@ -156,11 +204,16 @@ watch(
 
 async function handleSubmit() {
   error.value = ''
+  if (!form.serviceIds.length || !form.startTime) {
+    error.value = 'Please choose at least one service and an available time.'
+    return
+  }
+
   submitting.value = true
   try {
     const payload = buildBookingPayload({
       ...form,
-      startTime: form.startTime ?? '',
+      startTime: form.startTime,
       staffId: form.staffId
     } as CreateBookingInput)
 
@@ -169,8 +222,9 @@ async function handleSubmit() {
       body: payload
     })
     success.value = true
-  } catch (e: any) {
-    error.value = e?.data?.error?.message ?? 'Something went wrong. Please try again.'
+  } catch (e: unknown) {
+    const fetchError = e as { data?: { error?: { message?: string } } }
+    error.value = fetchError?.data?.error?.message ?? 'Something went wrong. Please try again.'
   } finally {
     submitting.value = false
   }
@@ -178,105 +232,198 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.booking-form {
-  max-width: 480px;
+.booking-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.25rem;
+  align-items: start;
 }
 
-.form-success {
-  color: #16a34a;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: var(--radius-card);
+.booking-form,
+.booking-summary {
   padding: 1.25rem;
+}
+
+.booking-summary {
+  position: sticky;
+  top: 6rem;
+}
+
+.booking-summary h2 {
+  margin: 0.35rem 0 1rem;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.booking-summary dl {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.booking-summary dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(223, 208, 195, 0.72);
+  padding-bottom: 0.65rem;
+}
+
+.booking-summary dt {
+  color: var(--color-muted);
+}
+
+.booking-summary dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-weight: 700;
+  text-align: right;
+}
+
+.shop-summary {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.shop-summary strong {
+  color: var(--color-ink);
+}
+
+.form-success,
+.form-error {
+  border-radius: var(--radius-card);
+  padding: 1rem;
   font-size: 0.95rem;
 }
 
+.form-success {
+  color: var(--color-success);
+  background: #edf7ef;
+  border: 1px solid #c9e5cf;
+}
+
 .form-error {
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: var(--radius-card);
-  padding: 0.75rem 1rem;
-  font-size: 0.85rem;
+  color: var(--color-danger);
+  background: #fbebe8;
+  border: 1px solid #efcac5;
   margin-bottom: 1rem;
 }
 
-.form-fields {
-  display: flex;
-  flex-direction: column;
+.form-fields,
+.form-section {
+  display: grid;
   gap: 1.25rem;
 }
 
-.field {
+.form-section {
+  border-bottom: 1px solid rgba(223, 208, 195, 0.72);
+  padding-bottom: 1.25rem;
+}
+
+.section-heading {
   display: flex;
-  flex-direction: column;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.section-heading > span {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: var(--color-bg-strong);
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.section-heading h2 {
+  margin: 0.15rem 0 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.service-options {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.service-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-strong);
+  padding: 0.9rem;
+  cursor: pointer;
+}
+
+.service-option.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(125, 78, 63, 0.12);
+}
+
+.service-option input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--color-primary);
+}
+
+.service-option strong,
+.service-option small {
+  display: block;
+}
+
+.service-option small {
+  color: var(--color-muted);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.field {
+  display: grid;
   gap: 0.35rem;
 }
 
-.field span, .field legend {
+.field span {
+  color: var(--color-ink-soft);
   font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--color-ink);
-}
-
-.field input,
-.field select,
-.field textarea {
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  background: var(--color-surface);
-  color: var(--color-ink);
-}
-
-.field input:focus,
-.field select:focus,
-.field textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-}
-
-.field-short {
-  max-width: 220px;
-}
-
-fieldset.field {
-  border: none;
-  padding: 0;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--color-muted);
-  padding: 0.2rem 0;
-  cursor: pointer;
+  font-weight: 700;
 }
 
 .submit-btn {
-  padding: 0.75rem 1.5rem;
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-card);
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  align-self: flex-start;
+  justify-self: start;
 }
 
-.submit-btn:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+@media (max-width: 860px) {
+  .booking-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-summary {
+    position: static;
+    order: 2;
+  }
 }
 
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+@media (max-width: 560px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .submit-btn {
+    width: 100%;
+  }
 }
 </style>

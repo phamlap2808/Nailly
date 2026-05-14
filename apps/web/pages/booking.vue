@@ -1,26 +1,22 @@
 <template>
   <div>
     <PublicNav />
-    <main class="container booking-page">
-      <h1 class="page-heading">{{ $t('booking.title') }}</h1>
+    <main class="booking-page">
+      <section class="container booking-hero">
+        <p class="eyebrow">Appointments</p>
+        <h1 class="display-title">{{ $t('booking.title') }}</h1>
+        <p>Choose your services, find a time, and send a request. The salon will contact you to confirm.</p>
+      </section>
 
-      <div v-if="!site" class="loading-state">Loading...</div>
-
-      <div v-else class="booking-layout">
+      <section class="container booking-content">
+        <div v-if="!site" class="loading-state surface-panel">Loading appointment details...</div>
         <BookingForm
+          v-else
           :services="site.services ?? []"
           :staff="site.staff ?? []"
+          :shop="site.shop"
         />
-
-        <!-- Shop summary sidebar -->
-        <aside class="booking-sidebar">
-          <div class="sidebar-card">
-            <h2>{{ site.shop?.name }}</h2>
-            <p v-if="site.shop?.address">{{ site.shop.address }}</p>
-            <p v-if="site.shop?.phone">{{ site.shop.phone }}</p>
-          </div>
-        </aside>
-      </div>
+      </section>
     </main>
   </div>
 </template>
@@ -29,7 +25,7 @@
 const config = useRuntimeConfig()
 const { data: site } = await useFetch<{
   shop: { name: string; address: string; phone: string } | null
-  services: Array<{ id: string; name: string; durationMins: number; priceCents: number }>
+  services: Array<{ id: string; name: string; durationMinutes: number; priceCents: number }>
   staff: Array<{ id: string; name: string }>
 }>(`${config.public.apiBaseUrl}/public/site`)
 
@@ -41,56 +37,31 @@ useSeoMeta({
 
 <style scoped>
 .booking-page {
-  padding: 3rem 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, rgba(184, 118, 92, 0.16), transparent 34%), var(--color-bg);
 }
 
-.page-heading {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin: 0 0 2rem;
+.booking-hero {
+  padding: 3.5rem 1.5rem 1.5rem;
 }
 
-.booking-layout {
-  display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: 3rem;
-  align-items: start;
+.booking-hero h1 {
+  margin: 0.4rem 0 0;
+  font-size: clamp(2.6rem, 7vw, 5rem);
 }
 
-@media (max-width: 768px) {
-  .booking-layout {
-    grid-template-columns: 1fr;
-    gap: 2rem;
-  }
-}
-
-.booking-sidebar {
-  position: sticky;
-  top: 5rem;
-}
-
-.sidebar-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  padding: 1.5rem;
-}
-
-.sidebar-card h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
-}
-
-.sidebar-card p {
+.booking-hero p:not(.eyebrow) {
+  max-width: 620px;
   color: var(--color-muted);
-  font-size: 0.9rem;
-  margin: 0.25rem 0;
+  font-size: 1rem;
+}
+
+.booking-content {
+  padding-bottom: 4rem;
 }
 
 .loading-state {
   color: var(--color-muted);
-  text-align: center;
-  padding: 3rem;
+  padding: 2rem;
 }
 </style>

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { buildBookingSummary } from '../utils/booking-summary'
 
 const services = [
-  { id: 'gel', name: 'Structured Gel Manicure', durationMins: 60, priceCents: 5800 },
-  { id: 'art', name: 'Minimal Nail Art', durationMins: 75, priceCents: 7200 },
-  { id: 'pedi', name: 'Restorative Pedicure', durationMins: 50, priceCents: 6400 }
+  { id: 'gel', name: 'Structured Gel Manicure', durationMinutes: 60, priceCents: 5800 },
+  { id: 'art', name: 'Minimal Nail Art', durationMinutes: 75, priceCents: 7200 },
+  { id: 'pedi', name: 'Restorative Pedicure', durationMinutes: 50, priceCents: 6400 }
 ]
 
 describe('buildBookingSummary', () => {
