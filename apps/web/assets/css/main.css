@@ -54,7 +54,7 @@ textarea {
 }
 
 .eyebrow {
-  color: var(--color-accent);
+  color: #8f563f;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -124,7 +124,11 @@ textarea {
 .form-control:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(125, 78, 63, 0.14);
-  outline: none;
+}
+
+.form-control:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .status-badge {
@@ -153,7 +157,7 @@ textarea {
 
 .status-badge--completed {
   background: #ede9e3;
-  color: var(--color-muted);
+  color: #65534a;
 }
 
 .status-badge--cancelled {
