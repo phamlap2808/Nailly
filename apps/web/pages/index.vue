@@ -16,7 +16,20 @@
           </div>
         </div>
 
-        <div class="hero-visual" :style="heroImageStyle" aria-label="Salon manicure detail">
+        <div class="hero-visual" :class="{ 'hero-visual--fallback': !heroImage }">
+          <NuxtImg
+            v-if="heroImage"
+            :src="heroImage.url"
+            :alt="heroImage.altText ?? 'Salon manicure detail'"
+            class="hero-img"
+            width="720"
+            height="920"
+            sizes="sm:100vw md:44vw lg:520px"
+            fetchpriority="high"
+          />
+          <div v-else class="hero-fallback" aria-hidden="true">
+            <span>LN</span>
+          </div>
           <div class="hero-note">
             <span>By appointment</span>
             <strong>{{ site?.shop?.phone ?? 'Book online' }}</strong>
@@ -41,12 +54,18 @@
     </section>
 
     <section class="proof-band">
-      <div class="container proof-grid">
-        <article v-for="reason in whyReasons" :key="reason.title" class="proof-card">
-          <p>{{ reason.kicker }}</p>
-          <h3>{{ reason.title }}</h3>
-          <span>{{ reason.text }}</span>
-        </article>
+      <div class="container proof-content">
+        <div class="proof-intro">
+          <p class="eyebrow">Why clients return</p>
+          <h2 class="display-title">Care standards you can feel.</h2>
+        </div>
+        <div class="proof-grid">
+          <article v-for="reason in whyReasons" :key="reason.title" class="proof-card">
+            <p>{{ reason.kicker }}</p>
+            <h3>{{ reason.title }}</h3>
+            <span>{{ reason.text }}</span>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -100,8 +119,8 @@
 <script setup lang="ts">
 interface SitePayload {
   shop: { name: string; tagline: string; address: string; phone: string; seoDescription: string } | null
-  services: Array<{ id: string; name: string; description: string; durationMins: number; priceCents: number }> | null
-  gallery: Array<{ publicUrl: string; altText: string | null }> | null
+  services: Array<{ id: string; name: string; description: string; durationMinutes: number; priceCents: number }> | null
+  gallery: Array<{ url: string; altText: string | null }> | null
   staff: Array<{ id: string; name: string; title: string }> | null
 }
 
@@ -127,10 +146,7 @@ const { data: site } = await useFetch<SitePayload>('/public/site', {
   baseURL: useRuntimeConfig().public.apiBaseUrl
 })
 
-const heroImageStyle = computed(() => {
-  const image = site.value?.gallery?.[0]?.publicUrl
-  return image ? { backgroundImage: `linear-gradient(rgba(43, 33, 29, 0.08), rgba(43, 33, 29, 0.18)), url("${image}")` } : {}
-})
+const heroImage = computed(() => site.value?.gallery?.[0] ?? null)
 
 useSeoMeta({
   title: site.value?.shop?.name ?? 'Nail Studio',
@@ -188,19 +204,59 @@ useSeoMeta({
 
 .hero-visual {
   position: relative;
+  overflow: hidden;
   min-height: clamp(28rem, 52vw, 39rem);
   border: 1px solid rgba(223, 208, 195, 0.78);
   border-radius: var(--radius-media);
-  background-color: #decbbc;
-  background-position: center;
-  background-size: cover;
+  background: linear-gradient(140deg, #eadbd0 0%, #c8957f 100%);
   box-shadow: var(--shadow-soft);
+}
+
+.hero-visual::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(43, 33, 29, 0.08), rgba(43, 33, 29, 0.18));
+  content: "";
+  pointer-events: none;
+}
+
+.hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 244, 0.64), rgba(125, 78, 63, 0.2)),
+    linear-gradient(140deg, #eadbd0 0%, #c8957f 100%);
+}
+
+.hero-fallback span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 8rem;
+  height: 8rem;
+  border: 1px solid rgba(255, 250, 244, 0.72);
+  border-radius: 50%;
+  color: rgba(43, 33, 29, 0.68);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 700;
 }
 
 .hero-note {
   position: absolute;
   right: 1rem;
   bottom: 1rem;
+  z-index: 1;
   display: grid;
   gap: 0.15rem;
   max-width: min(18rem, calc(100% - 2rem));
@@ -258,6 +314,24 @@ useSeoMeta({
   background: var(--color-primary);
   color: #fff;
   padding: 2.8rem 0;
+}
+
+.proof-content {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.58fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: start;
+}
+
+.proof-intro .eyebrow {
+  margin: 0 0 0.75rem;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.proof-intro h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.9rem, 3.6vw, 3.3rem);
 }
 
 .proof-grid {
@@ -403,6 +477,7 @@ useSeoMeta({
     min-height: 26rem;
   }
 
+  .proof-content,
   .proof-grid {
     grid-template-columns: 1fr;
   }

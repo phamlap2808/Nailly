@@ -5,7 +5,7 @@
       <p>{{ service.description }}</p>
     </div>
     <div class="service-details" aria-label="Service details">
-      <span>{{ service.durationMins }} min</span>
+      <span>{{ service.durationMinutes }} min</span>
       <strong>{{ formatPrice(service.priceCents) }}</strong>
     </div>
   </article>
@@ -18,7 +18,7 @@ defineProps<{
   service: {
     name: string
     description: string
-    durationMins: number
+    durationMinutes: number
     priceCents: number
   }
 }>()

@@ -2,8 +2,8 @@
   <div class="gallery-grid">
     <NuxtImg
       v-for="(item, index) in images"
-      :key="item.publicUrl"
-      :src="item.publicUrl"
+      :key="item.url"
+      :src="item.url"
       :alt="item.altText ?? ''"
       :class="['gallery-img', { 'gallery-img--feature': index === 0 }]"
       width="720"
@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 defineProps<{
-  images: Array<{ publicUrl: string; altText: string | null }>
+  images: Array<{ url: string; altText: string | null }>
 }>()
 </script>
 
