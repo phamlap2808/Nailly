@@ -1,37 +1,53 @@
 <template>
-  <div class="login-page">
-    <form class="login-card" @submit.prevent="handleLogin">
-      <h1>{{ $t('admin.login') }}</h1>
+  <main class="login-page">
+    <section class="login-shell surface-panel" aria-labelledby="login-title">
+      <div class="login-intro">
+        <NuxtLink to="/" class="brand-lockup">
+          <span class="brand-mark">LN</span>
+          <span>Luma Nail Studio</span>
+        </NuxtLink>
+        <p class="eyebrow">Admin</p>
+        <h1 id="login-title" class="display-title">Studio sign in</h1>
+        <p>Manage appointments, services, staff, and the public salon profile.</p>
+      </div>
 
-      <div v-if="error" class="login-error">{{ error }}</div>
+      <form class="login-card" @submit.prevent="handleLogin">
+        <div v-if="error" class="login-error" role="alert">{{ error }}</div>
 
-      <label class="field">
-        <span>Email</span>
-        <input v-model="email" type="email" required autocomplete="email" />
-      </label>
+        <label class="field">
+          <span>Email</span>
+          <input v-model="email" class="form-control" type="email" required autocomplete="email" />
+        </label>
 
-      <label class="field">
-        <span>Password</span>
-        <input v-model="password" type="password" required autocomplete="current-password" />
-      </label>
+        <label class="field">
+          <span>Password</span>
+          <input
+            v-model="password"
+            class="form-control"
+            type="password"
+            required
+            autocomplete="current-password"
+          />
+        </label>
 
-      <button type="submit" class="submit-btn" :disabled="loading">
-        {{ loading ? 'Signing in...' : 'Sign in' }}
-      </button>
+        <button type="submit" class="btn-primary submit-btn" :disabled="loading">
+          {{ loading ? 'Signing in...' : 'Sign in' }}
+        </button>
 
-      <details class="demo-hint">
-        <summary>Demo credentials</summary>
-        <pre>owner@lumanails.example / owner-password
-manager@lumanails.example / manager-password
-staff@lumanails.example / staff-password</pre>
-      </details>
-    </form>
-  </div>
+        <details class="demo-hint">
+          <summary>Demo credentials</summary>
+          <div class="demo-list">
+            <code>owner@lumanails.example / owner-password</code>
+            <code>manager@lumanails.example / manager-password</code>
+            <code>staff@lumanails.example / staff-password</code>
+          </div>
+        </details>
+      </form>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
-import type { AdminProfile } from '../../stores/session'
-
 definePageMeta({
   layout: false
 })
@@ -42,14 +58,32 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
+function getErrorMessage(value: unknown) {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'data' in value &&
+    value.data &&
+    typeof value.data === 'object' &&
+    'error' in value.data &&
+    value.data.error &&
+    typeof value.data.error === 'object' &&
+    'message' in value.data.error &&
+    typeof value.data.error.message === 'string'
+  ) {
+    return value.data.error.message
+  }
+  return 'Invalid credentials.'
+}
+
 async function handleLogin() {
   error.value = ''
   loading.value = true
   try {
     await session.login(email.value, password.value)
     navigateTo('/admin')
-  } catch (e: any) {
-    error.value = e?.data?.error?.message ?? 'Invalid credentials.'
+  } catch (err: unknown) {
+    error.value = getErrorMessage(err)
   } finally {
     loading.value = false
   }
@@ -59,89 +93,155 @@ async function handleLogin() {
 <style scoped>
 .login-page {
   min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(248, 243, 237, 0.94), rgba(239, 226, 214, 0.72)),
+    var(--color-bg);
+  padding: 1.25rem;
+}
+
+.login-shell {
+  width: min(100%, 920px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+  min-height: 560px;
+  overflow: hidden;
+}
+
+.login-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  background: var(--color-ink);
+  color: #fff8ef;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.brand-lockup {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--color-bg);
-  padding: 2rem;
+  gap: 0.7rem;
+  color: #fff8ef;
+  text-decoration: none;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.12rem;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.brand-mark {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: #fff8ef;
+  color: var(--color-ink);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.login-intro .eyebrow {
+  color: #d7ab91;
+  margin-top: auto;
+}
+
+.login-intro h1 {
+  max-width: 9ch;
+  margin: 0.3rem 0 0;
+  font-size: clamp(3rem, 7vw, 5.4rem);
+}
+
+.login-intro p:not(.eyebrow) {
+  max-width: 28rem;
+  color: rgba(255, 248, 239, 0.74);
+  margin: 0.9rem 0 0;
 }
 
 .login-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  padding: 2.5rem;
-  width: 100%;
-  max-width: 400px;
-}
-
-.login-card h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 1.5rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .login-error {
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.85rem;
+  border: 1px solid #edc2bc;
+  border-radius: var(--radius-card);
+  background: #fbedea;
+  color: var(--color-danger);
+  padding: 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 800;
   margin-bottom: 1rem;
 }
 
 .field {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0.35rem;
   margin-bottom: 1rem;
 }
 
 .field span {
+  color: var(--color-ink-soft);
   font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.field input {
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-family: inherit;
+  font-weight: 700;
 }
 
 .submit-btn {
   width: 100%;
-  padding: 0.7rem;
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-card);
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  margin-top: 0.25rem;
 }
 
 .demo-hint {
-  margin-top: 1.5rem;
-  font-size: 0.8rem;
+  border-top: 1px solid var(--color-border);
   color: var(--color-muted);
+  font-size: 0.82rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
 }
 
 .demo-hint summary {
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 800;
 }
 
-.demo-hint pre {
-  margin: 0.5rem 0 0;
-  font-size: 0.75rem;
-  line-height: 1.6;
+.demo-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.demo-list code {
+  display: block;
+  border-radius: var(--radius-card);
+  background: var(--color-bg-strong);
+  color: var(--color-ink-soft);
+  font-size: 0.76rem;
+  padding: 0.45rem 0.55rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .login-page {
+    align-items: stretch;
+  }
+
+  .login-shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .login-intro {
+    min-height: 300px;
+  }
+
+  .login-intro h1 {
+    max-width: 11ch;
+  }
 }
 </style>
