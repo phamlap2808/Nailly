@@ -1,64 +1,67 @@
 <template>
   <AdminShell>
-    <div class="page-header">
-      <h1 class="page-heading">Services</h1>
-      <button class="btn-primary" @click="openCreate">+ Add Service</button>
+    <div class="admin-page-header">
+      <div>
+        <p class="eyebrow">Catalog</p>
+        <h1 class="display-title">Services</h1>
+        <p>Keep service names, timing, pricing, and availability ready for public booking.</p>
+      </div>
+      <button class="btn-primary" @click="openCreate">Add service</button>
     </div>
 
-    <div v-if="loading" class="loading-state">Loading...</div>
+    <div v-if="loading" class="loading-state surface-panel">Loading services...</div>
 
     <template v-else>
-      <div v-for="cat in categories" :key="cat.id" class="category-group">
+      <div v-for="cat in categories" :key="cat.id" class="category-panel surface-panel">
         <h2 class="category-name">{{ cat.name }}</h2>
         <div class="service-list">
           <div v-for="svc in getServicesForCategory(cat.id)" :key="svc.id" class="service-row">
             <div>
               <div class="service-name">{{ svc.name }}</div>
-              <div class="service-meta">{{ svc.durationMins }} min / {{ formatPrice(svc.priceCents) }}</div>
+              <div class="service-meta">{{ svc.durationMinutes }} min / {{ formatPrice(svc.priceCents) }}</div>
             </div>
             <div class="service-actions">
-              <span :class="['active-dot', svc.isActive ? 'on' : 'off']" />
-              <button class="action-btn" @click="openEdit(svc)">Edit</button>
+              <span :class="['active-dot', svc.active ? 'on' : 'off']" />
+              <button class="btn-secondary action-btn" @click="openEdit(svc)">Edit</button>
             </div>
           </div>
         </div>
       </div>
     </template>
 
-    <!-- Create/Edit Modal -->
     <dialog v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <form class="modal-card" @submit.prevent="handleSave">
         <h2>{{ editing ? 'Edit Service' : 'New Service' }}</h2>
         <label class="field">
           <span>Name</span>
-          <input v-model="form.name" required />
+          <input v-model="form.name" class="form-control" required />
         </label>
         <label class="field">
           <span>Description</span>
-          <textarea v-model="form.description" rows="2" required />
+          <textarea v-model="form.description" class="form-control" rows="2" required />
         </label>
         <label class="field">
           <span>Category</span>
-          <select v-model="form.categoryId">
+          <select v-model="form.categoryId" class="form-control">
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
         </label>
         <div class="field-row">
           <label class="field field-short">
             <span>Duration (min)</span>
-            <input v-model.number="form.durationMins" type="number" required min="15" step="15" />
+            <input v-model.number="form.durationMinutes" class="form-control" type="number" required min="15" step="15" />
           </label>
           <label class="field field-short">
             <span>Price (cents)</span>
-            <input v-model.number="form.priceCents" type="number" required min="0" />
+            <input v-model.number="form.priceCents" class="form-control" type="number" required min="0" />
           </label>
         </div>
         <label class="field checkbox-field">
-          <input v-model="form.isActive" type="checkbox" />
+          <input v-model="form.active" type="checkbox" />
           <span>Active</span>
         </label>
         <div class="modal-actions">
-          <button type="button" class="btn-cancel" @click="showModal = false">Cancel</button>
+          <button type="button" class="btn-secondary" @click="showModal = false">Cancel</button>
           <button type="submit" class="btn-primary">{{ editing ? 'Update' : 'Create' }}</button>
         </div>
       </form>
@@ -74,22 +77,37 @@ definePageMeta({
   layout: false
 })
 
+interface ServiceCategory {
+  id: string
+  name: string
+}
+
+interface AdminService {
+  id: string
+  categoryId: string
+  name: string
+  description: string
+  durationMinutes: number
+  priceCents: number
+  active: boolean
+}
+
 const config = useRuntimeConfig()
 const baseUrl = config.public.apiBaseUrl
 
-const categories = ref<any[]>([])
-const services = ref<any[]>([])
+const categories = ref<ServiceCategory[]>([])
+const services = ref<AdminService[]>([])
 const loading = ref(true)
 const showModal = ref(false)
-const editing = ref<any>(null)
+const editing = ref<AdminService | null>(null)
 
 const form = reactive({
   name: '',
   description: '',
   categoryId: '',
-  durationMins: 30,
+  durationMinutes: 30,
   priceCents: 0,
-  isActive: true
+  active: true
 })
 
 function getServicesForCategory(catId: string) {
@@ -99,8 +117,8 @@ function getServicesForCategory(catId: string) {
 async function fetchData() {
   loading.value = true
   const [cats, svcs] = await Promise.all([
-    $fetch<any[]>(`${baseUrl}/admin/service-categories`, { credentials: 'include' }),
-    $fetch<any[]>(`${baseUrl}/admin/services`, { credentials: 'include' })
+    $fetch<ServiceCategory[]>(`${baseUrl}/admin/service-categories`, { credentials: 'include' }),
+    $fetch<AdminService[]>(`${baseUrl}/admin/services`, { credentials: 'include' })
   ])
   categories.value = cats
   services.value = svcs
@@ -114,20 +132,20 @@ function openCreate() {
   form.name = ''
   form.description = ''
   form.categoryId = categories.value[0]?.id ?? ''
-  form.durationMins = 30
+  form.durationMinutes = 30
   form.priceCents = 0
-  form.isActive = true
+  form.active = true
   showModal.value = true
 }
 
-function openEdit(svc: any) {
+function openEdit(svc: AdminService) {
   editing.value = svc
   form.name = svc.name
   form.description = svc.description
   form.categoryId = svc.categoryId
-  form.durationMins = svc.durationMins
+  form.durationMinutes = svc.durationMinutes
   form.priceCents = svc.priceCents
-  form.isActive = svc.isActive
+  form.active = svc.active
   showModal.value = true
 }
 
@@ -152,72 +170,164 @@ async function handleSave() {
 </script>
 
 <style scoped>
-.page-header {
+.admin-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-page-header h1 {
+  margin: 0.3rem 0 0;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+.admin-page-header p:not(.eyebrow) {
+  color: var(--color-muted);
+  margin: 0.4rem 0 0;
+}
+
+.category-panel {
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.category-name {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 0.75rem;
+}
+
+.service-list {
+  display: grid;
+}
+
+.service-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  padding: 0.9rem 0;
+}
+
+.service-row:first-child {
+  border-top: none;
+}
+
+.service-name {
+  font-weight: 800;
+}
+
+.service-meta {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.service-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;
 }
-.page-heading { font-size: 1.5rem; font-weight: 700; margin: 0; }
-.btn-primary {
-  padding: 0.5rem 1rem;
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
+
+.active-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--color-border);
 }
-.category-group { margin-bottom: 2rem; }
-.category-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-muted);
-  margin: 0 0 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+
+.active-dot.on {
+  background: var(--color-success);
 }
-.service-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.service-row {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-card); padding: 1rem 1.25rem;
-}
-.service-name { font-weight: 600; font-size: 0.95rem; }
-.service-meta { color: var(--color-muted); font-size: 0.8rem; }
-.service-actions { display: flex; align-items: center; gap: 0.75rem; }
-.active-dot { width: 8px; height: 8px; border-radius: 50%; }
-.active-dot.on { background: #16a34a; }
-.active-dot.off { background: var(--color-border); }
+
 .action-btn {
-  background: none; border: 1px solid var(--color-border); border-radius: 4px;
-  padding: 0.25rem 0.75rem; font-size: 0.8rem; cursor: pointer; color: var(--color-muted);
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
 }
-.action-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.3);
-  display: flex; align-items: center; justify-content: center; z-index: 100;
-  border: none; padding: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(43, 33, 29, 0.36);
+  padding: 1rem;
 }
+
 .modal-card {
-  background: var(--color-surface); border-radius: var(--radius-card); padding: 2rem;
-  width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+  width: min(100%, 520px);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  padding: 1.5rem;
 }
-.modal-card h2 { margin: 0 0 1.25rem; font-size: 1.2rem; }
-.field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
-.field span { font-size: 0.85rem; font-weight: 500; }
-.field input, .field select, .field textarea {
-  padding: 0.5rem 0.75rem; border: 1px solid var(--color-border);
-  border-radius: 6px; font-size: 0.9rem; font-family: inherit;
+
+.modal-card h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.2rem;
 }
-.field-short { max-width: 140px; }
-.field-row { display: flex; gap: 1rem; }
-.checkbox-field { flex-direction: row; align-items: center; gap: 0.5rem; }
-.modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
-.btn-cancel {
-  padding: 0.5rem 1rem; background: none; border: 1px solid var(--color-border);
-  border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
 }
-.loading-state { color: var(--color-muted); text-align: center; padding: 3rem; }
+
+.field span,
+.field legend {
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.field-short {
+  min-width: 140px;
+}
+
+.field-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.loading-state {
+  color: var(--color-muted);
+  padding: 2rem;
+}
+
+@media (max-width: 640px) {
+  .admin-page-header,
+  .service-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .field-row {
+    display: grid;
+  }
+
+  .modal-actions {
+    display: grid;
+  }
+}
 </style>
