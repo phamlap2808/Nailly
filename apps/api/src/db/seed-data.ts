@@ -1,4 +1,47 @@
-import type { AdminRole } from '@nailly/shared'
+import type {
+  AdminRole,
+  FinancePaymentMethod,
+  InvoiceItemType,
+  InvoiceSource,
+  InvoiceStatus
+} from '@nailly/shared'
+
+interface FinanceInvoiceDemoItem {
+  itemType: InvoiceItemType
+  serviceName?: string
+  staffName?: string
+  name?: string
+  quantity: number
+  unitPriceCents: number
+}
+
+interface FinanceInvoiceDemoPayment {
+  method: FinancePaymentMethod
+  amountCents: number
+  reference?: string
+}
+
+interface FinanceInvoiceDemoRefund {
+  method: FinancePaymentMethod
+  amountCents: number
+  reason: string
+}
+
+interface FinanceInvoiceDemo {
+  invoiceNumber: string
+  source: InvoiceSource
+  bookingCustomerName?: string
+  customerName: string
+  customerPhone: string
+  customerEmail: string
+  status: InvoiceStatus
+  discountCents: number
+  discountReason?: string
+  tipCents: number
+  items: FinanceInvoiceDemoItem[]
+  payments: FinanceInvoiceDemoPayment[]
+  refunds: FinanceInvoiceDemoRefund[]
+}
 
 export const demoSeed = {
   shop: {
@@ -20,6 +63,9 @@ export const demoSeed = {
       saturday: '09:00 - 18:00',
       sunday: 'Closed'
     },
+    taxRateBps: 825,
+    receiptFooter: 'Thank you for visiting Luma Nail Studio.',
+    invoicePrefix: 'INV',
     seoTitle: 'Luma Nail Studio | Nail Appointments',
     seoDescription: 'Book manicures, pedicures, gel nails, and nail art at Luma Nail Studio.'
   },
@@ -71,13 +117,79 @@ export const demoSeed = {
     { categoryName: 'Nail Art', name: 'Minimal Nail Art', description: 'Simple accents on up to four nails.', durationMinutes: 30, priceCents: 2200, sortOrder: 6 }
   ],
   staff: [
-    { name: 'Maya Chen', title: 'Senior Nail Artist', bio: 'Specializes in gel structure and soft neutral finishes.' },
-    { name: 'Ari Morgan', title: 'Nail Artist', bio: 'Known for clean manicures and playful minimal art.' },
-    { name: 'Nina Patel', title: 'Pedicure Specialist', bio: 'Focuses on restorative foot care and calm service.' }
+    { name: 'Maya Chen', title: 'Senior Nail Artist', bio: 'Specializes in gel structure and soft neutral finishes.', commissionRateBps: 4500 },
+    { name: 'Ari Morgan', title: 'Nail Artist', bio: 'Known for clean manicures and playful minimal art.', commissionRateBps: 4000 },
+    { name: 'Nina Patel', title: 'Pedicure Specialist', bio: 'Focuses on restorative foot care and calm service.', commissionRateBps: 4200 }
+  ],
+  financeInvoices: [
+    {
+      invoiceNumber: 'INV-DEMO-1001',
+      source: 'booking',
+      bookingCustomerName: 'Olivia Carter',
+      customerName: 'Olivia Carter',
+      customerPhone: '+1 555 0101',
+      customerEmail: 'olivia@example.com',
+      status: 'paid',
+      discountCents: 500,
+      discountReason: 'Loyalty',
+      tipCents: 1000,
+      items: [
+        { itemType: 'service', serviceName: 'Gel Manicure', staffName: 'Maya Chen', quantity: 1, unitPriceCents: 5800 },
+        { itemType: 'service', serviceName: 'Minimal Nail Art', staffName: 'Ari Morgan', quantity: 1, unitPriceCents: 2200 }
+      ],
+      payments: [{ method: 'credit_card', amountCents: 9119, reference: 'demo-card-1001' }],
+      refunds: []
+    },
+    {
+      invoiceNumber: 'INV-DEMO-1002',
+      source: 'walk_in',
+      customerName: 'Avery Stone',
+      customerPhone: '+1 555 0102',
+      customerEmail: '',
+      status: 'paid',
+      discountCents: 0,
+      tipCents: 800,
+      items: [
+        { itemType: 'service', serviceName: 'Classic Pedicure', staffName: 'Nina Patel', quantity: 1, unitPriceCents: 4800 }
+      ],
+      payments: [{ method: 'cash', amountCents: 5996 }],
+      refunds: []
+    },
+    {
+      invoiceNumber: 'INV-DEMO-1003',
+      source: 'walk_in',
+      customerName: 'Mia Thompson',
+      customerPhone: '+1 555 0103',
+      customerEmail: 'mia@example.com',
+      status: 'partially_refunded',
+      discountCents: 0,
+      tipCents: 1200,
+      items: [
+        { itemType: 'service', serviceName: 'Builder Gel Overlay', staffName: 'Maya Chen', quantity: 1, unitPriceCents: 7800 }
+      ],
+      payments: [{ method: 'venmo', amountCents: 9644 }],
+      refunds: [{ method: 'venmo', amountCents: 2000, reason: 'Partial courtesy refund' }]
+    },
+    {
+      invoiceNumber: 'INV-DEMO-1004',
+      source: 'booking',
+      bookingCustomerName: 'Grace Nguyen',
+      customerName: 'Grace Nguyen',
+      customerPhone: '+1 555 0104',
+      customerEmail: 'grace@example.com',
+      status: 'paid',
+      discountCents: 0,
+      tipCents: 0,
+      items: [
+        { itemType: 'service', serviceName: 'Spa Pedicure', staffName: 'Nina Patel', quantity: 1, unitPriceCents: 6500 }
+      ],
+      payments: [{ method: 'zelle', amountCents: 7036 }],
+      refunds: []
+    }
   ],
   adminUsers: [
     { email: 'owner@lumanails.example', password: 'owner-password', name: 'Owner Demo', role: 'owner' as AdminRole },
     { email: 'manager@lumanails.example', password: 'manager-password', name: 'Manager Demo', role: 'manager' as AdminRole },
     { email: 'staff@lumanails.example', password: 'staff-password', name: 'Staff Demo', role: 'staff' as AdminRole }
   ]
-}
+} satisfies { financeInvoices: FinanceInvoiceDemo[] } & Record<string, unknown>

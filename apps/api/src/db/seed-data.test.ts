@@ -27,4 +27,13 @@ describe('demo seed data', () => {
     expect(demoSeed.media.length).toBeGreaterThanOrEqual(4)
     expect(demoSeed.adminUsers.map((user) => user.role).sort()).toEqual(['manager', 'owner', 'staff'])
   })
+
+  it('includes realistic finance demo data for POS and reporting', () => {
+    expect(demoSeed.shop.taxRateBps).toBe(825)
+    expect(demoSeed.shop.invoicePrefix).toBe('INV')
+    expect(demoSeed.staff.every((person) => typeof person.commissionRateBps === 'number')).toBe(true)
+    expect(demoSeed.financeInvoices.length).toBeGreaterThanOrEqual(4)
+    expect(demoSeed.financeInvoices.some((invoice) => invoice.source === 'walk_in')).toBe(true)
+    expect(demoSeed.financeInvoices.some((invoice) => invoice.refunds.length > 0)).toBe(true)
+  })
 })
