@@ -20,6 +20,25 @@ export const bookingStatus = pgEnum('booking_status', [
   'completed',
   'no_show'
 ])
+export const invoiceStatus = pgEnum('invoice_status', [
+  'draft',
+  'open',
+  'paid',
+  'partially_refunded',
+  'refunded',
+  'void'
+])
+export const invoiceSource = pgEnum('invoice_source', ['booking', 'walk_in'])
+export const invoiceItemType = pgEnum('invoice_item_type', ['service', 'manual'])
+export const financePaymentMethod = pgEnum('finance_payment_method', [
+  'cash',
+  'credit_card',
+  'debit_card',
+  'zelle',
+  'venmo',
+  'gift_card',
+  'other'
+])
 
 export const shopSettings = pgTable('shop_settings', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -32,6 +51,9 @@ export const shopSettings = pgTable('shop_settings', {
   address: text('address').notNull(),
   mapUrl: text('map_url'),
   openingHours: jsonb('opening_hours').$type<Record<string, string>>().notNull(),
+  taxRateBps: integer('tax_rate_bps').notNull().default(825),
+  receiptFooter: text('receipt_footer').notNull().default('Thank you for visiting Luma Nail Studio.'),
+  invoicePrefix: text('invoice_prefix').notNull().default('INV'),
   seoTitle: text('seo_title').notNull(),
   seoDescription: text('seo_description').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -80,6 +102,7 @@ export const staff = pgTable('staff', {
   name: text('name').notNull(),
   title: text('title').notNull(),
   bio: text('bio').notNull(),
+  commissionRateBps: integer('commission_rate_bps').notNull().default(4000),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
@@ -142,6 +165,75 @@ export const bookingServices = pgTable(
     pk: primaryKey({ columns: [table.bookingId, table.serviceId] })
   })
 )
+
+export const invoices = pgTable('invoices', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  invoiceNumber: text('invoice_number').notNull().unique(),
+  source: invoiceSource('source').notNull(),
+  bookingId: uuid('booking_id').references(() => bookings.id),
+  customerName: text('customer_name').notNull(),
+  customerPhone: text('customer_phone'),
+  customerEmail: text('customer_email'),
+  status: invoiceStatus('status').notNull().default('draft'),
+  subtotalCents: integer('subtotal_cents').notNull().default(0),
+  discountCents: integer('discount_cents').notNull().default(0),
+  discountReason: text('discount_reason'),
+  taxRateBps: integer('tax_rate_bps').notNull().default(0),
+  taxCents: integer('tax_cents').notNull().default(0),
+  tipCents: integer('tip_cents').notNull().default(0),
+  totalCents: integer('total_cents').notNull().default(0),
+  paidCents: integer('paid_cents').notNull().default(0),
+  refundedCents: integer('refunded_cents').notNull().default(0),
+  voidReason: text('void_reason'),
+  issuedAt: timestamp('issued_at', { withTimezone: true }),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  voidedAt: timestamp('voided_at', { withTimezone: true }),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
+  updatedBy: uuid('updated_by').references(() => adminUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+})
+
+export const invoiceItems = pgTable('invoice_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id).notNull(),
+  itemType: invoiceItemType('item_type').notNull(),
+  serviceId: uuid('service_id').references(() => services.id),
+  staffId: uuid('staff_id').references(() => staff.id),
+  name: text('name').notNull(),
+  description: text('description'),
+  quantity: integer('quantity').notNull().default(1),
+  unitPriceCents: integer('unit_price_cents').notNull(),
+  lineTotalCents: integer('line_total_cents').notNull(),
+  commissionRateBps: integer('commission_rate_bps').notNull().default(0),
+  commissionCents: integer('commission_cents').notNull().default(0),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+})
+
+export const payments = pgTable('payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id).notNull(),
+  method: financePaymentMethod('method').notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  reference: text('reference'),
+  note: text('note'),
+  paidAt: timestamp('paid_at', { withTimezone: true }).defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+})
+
+export const refunds = pgTable('refunds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id).notNull(),
+  paymentId: uuid('payment_id').references(() => payments.id),
+  method: financePaymentMethod('method').notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  reason: text('reason').notNull(),
+  refundedAt: timestamp('refunded_at', { withTimezone: true }).defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+})
 
 export const adminUsers = pgTable('admin_users', {
   id: uuid('id').primaryKey().defaultRandom(),
