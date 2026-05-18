@@ -26,22 +26,26 @@ export interface FinanceMathResult {
   itemCommissions: number[]
 }
 
-function cents(value: number) {
+function nonNegativeInteger(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
   return Math.max(0, Math.trunc(value))
 }
 
 export function calculateInvoiceTotals(input: FinanceMathInput): FinanceMathResult {
   const subtotalCents = input.items.reduce(
-    (sum, item) => sum + cents(item.quantity) * cents(item.unitPriceCents),
+    (sum, item) => sum + nonNegativeInteger(item.quantity) * nonNegativeInteger(item.unitPriceCents),
     0
   )
-  const discountCents = Math.min(cents(input.discountCents), subtotalCents)
+  const discountCents = Math.min(nonNegativeInteger(input.discountCents), subtotalCents)
   const taxableSubtotalCents = subtotalCents - discountCents
-  const taxCents = Math.round((taxableSubtotalCents * cents(input.taxRateBps)) / 10000)
-  const tipCents = cents(input.tipCents)
+  const taxCents = Math.round((taxableSubtotalCents * nonNegativeInteger(input.taxRateBps)) / 10000)
+  const tipCents = nonNegativeInteger(input.tipCents)
   const totalCents = taxableSubtotalCents + taxCents + tipCents
-  const paidCents = cents(input.paidCents)
-  const refundedCents = cents(input.refundedCents)
+  const paidCents = nonNegativeInteger(input.paidCents)
+  const refundedCents = nonNegativeInteger(input.refundedCents)
 
   return {
     subtotalCents,
@@ -54,7 +58,12 @@ export function calculateInvoiceTotals(input: FinanceMathInput): FinanceMathResu
     refundedCents,
     netCollectedCents: paidCents - refundedCents,
     itemCommissions: input.items.map((item) =>
-      Math.round((cents(item.quantity) * cents(item.unitPriceCents) * cents(item.commissionRateBps)) / 10000)
+      Math.round(
+        (nonNegativeInteger(item.quantity) *
+          nonNegativeInteger(item.unitPriceCents) *
+          nonNegativeInteger(item.commissionRateBps)) /
+          10000
+      )
     )
   }
 }
