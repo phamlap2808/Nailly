@@ -59,12 +59,33 @@ type FinanceRefundInput = {
   createdBy: string
 }
 
+type RevenueSummaryInvoice = {
+  totalCents: number
+  refundedCents: number
+  taxCents: number
+  tipCents: number
+}
+
 export function getRefundStatusAfterRefund(
   invoice: { paidCents: number; refundedCents: number },
   refundAmountCents: number
 ) {
   const nextRefundedCents = invoice.refundedCents + refundAmountCents
   return nextRefundedCents >= invoice.paidCents ? 'refunded' : 'partially_refunded'
+}
+
+function summarizeRevenueInvoices(invoiceRows: RevenueSummaryInvoice[]) {
+  return invoiceRows.reduce(
+    (summary, invoice) => ({
+      grossCents: summary.grossCents + invoice.totalCents,
+      refundedCents: summary.refundedCents + invoice.refundedCents,
+      netCents: summary.netCents + invoice.totalCents - invoice.refundedCents,
+      taxCents: summary.taxCents + invoice.taxCents,
+      tipCents: summary.tipCents + invoice.tipCents,
+      invoiceCount: summary.invoiceCount + 1
+    }),
+    { grossCents: 0, refundedCents: 0, netCents: 0, taxCents: 0, tipCents: 0, invoiceCount: 0 }
+  )
 }
 
 export function createFinanceRepository(databaseUrl?: string) {
@@ -290,6 +311,65 @@ export function createFinanceRepository(databaseUrl?: string) {
 
     async listInvoices() {
       return db.select().from(invoices).orderBy(desc(invoices.createdAt))
+    },
+
+    async listPayments() {
+      return db.select().from(payments).orderBy(desc(payments.createdAt))
+    },
+
+    async listRefunds() {
+      return db.select().from(refunds).orderBy(desc(refunds.createdAt))
+    },
+
+    async getRevenueReport() {
+      const invoiceRows = await db.select().from(invoices).orderBy(desc(invoices.createdAt))
+      const paymentRows = await db.select().from(payments).orderBy(desc(payments.createdAt))
+      const refundRows = await db.select().from(refunds).orderBy(desc(refunds.createdAt))
+      const itemRows = await db
+        .select({
+          id: invoiceItems.id,
+          invoiceId: invoiceItems.invoiceId,
+          itemType: invoiceItems.itemType,
+          serviceId: invoiceItems.serviceId,
+          staffId: invoiceItems.staffId,
+          staffName: staff.name,
+          name: invoiceItems.name,
+          quantity: invoiceItems.quantity,
+          lineTotalCents: invoiceItems.lineTotalCents,
+          commissionCents: invoiceItems.commissionCents
+        })
+        .from(invoiceItems)
+        .leftJoin(staff, eq(invoiceItems.staffId, staff.id))
+
+      const payrollRows = Array.from(
+        itemRows
+          .filter((item) => item.staffId)
+          .reduce((rows, item) => {
+            const key = item.staffId ?? 'unassigned'
+            const current = rows.get(key) ?? {
+              staffId: item.staffId,
+              staffName: item.staffName ?? 'Unassigned',
+              salesCents: 0,
+              commissionCents: 0,
+              lineCount: 0
+            }
+            current.salesCents += item.lineTotalCents
+            current.commissionCents += item.commissionCents
+            current.lineCount += 1
+            rows.set(key, current)
+            return rows
+          }, new Map<string, { staffId: string | null; staffName: string; salesCents: number; commissionCents: number; lineCount: number }>())
+          .values()
+      ).sort((a, b) => b.salesCents - a.salesCents)
+
+      return {
+        invoices: invoiceRows,
+        payments: paymentRows,
+        refunds: refundRows,
+        items: itemRows,
+        payrollRows,
+        summary: summarizeRevenueInvoices(invoiceRows)
+      }
     }
   }
 }

@@ -9,6 +9,7 @@ import { createAdminRepository } from '../repositories/admin.repository'
 import { createFinanceRepository } from '../repositories/finance.repository'
 import { RedisJsonCache } from '../cache/redis'
 import { createAdminService } from '../services/admin.service'
+import { invoicesToCsv, paymentsToCsv, payrollToCsv, refundsToCsv } from '../services/finance-export'
 import { createFinanceService } from '../services/finance.service'
 import { assertSupportedImage } from '../services/media.service'
 import { createMinioStorage } from '../storage/minio'
@@ -278,6 +279,51 @@ export function adminRoutes(
       adminUserId: user.id
     })
     return c.json(result)
+  })
+
+  router.get('/reports/revenue', guard('manager'), async (c) => {
+    const result = await financeRepository.getRevenueReport()
+    return c.json(result)
+  })
+
+  router.get('/exports/invoices.csv', guard('manager'), async () => {
+    const rows = await financeRepository.listInvoices()
+    return new Response(invoicesToCsv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="invoices.csv"'
+      }
+    })
+  })
+
+  router.get('/exports/payments.csv', guard('manager'), async () => {
+    const rows = await financeRepository.listPayments()
+    return new Response(paymentsToCsv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="payments.csv"'
+      }
+    })
+  })
+
+  router.get('/exports/refunds.csv', guard('manager'), async () => {
+    const rows = await financeRepository.listRefunds()
+    return new Response(refundsToCsv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="refunds.csv"'
+      }
+    })
+  })
+
+  router.get('/exports/payroll.csv', guard('manager'), async () => {
+    const report = await financeRepository.getRevenueReport()
+    return new Response(payrollToCsv(report.payrollRows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="payroll.csv"'
+      }
+    })
   })
 
   return router
