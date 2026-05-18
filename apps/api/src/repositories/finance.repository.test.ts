@@ -48,7 +48,7 @@ vi.mock('../db/client', () => ({
   createDb: vi.fn(() => ({ db: mocks.db }))
 }))
 
-import { createFinanceRepository } from './finance.repository'
+import { createFinanceRepository, getRefundStatusAfterRefund } from './finance.repository'
 
 describe('createFinanceRepository', () => {
   beforeEach(() => {
@@ -67,5 +67,12 @@ describe('createFinanceRepository', () => {
       payments: [{ id: 'payment-1' }],
       refunds: [{ id: 'refund-1' }]
     })
+  })
+})
+
+describe('getRefundStatusAfterRefund', () => {
+  it('marks invoices fully refunded once refunded cents reach paid cents', () => {
+    expect(getRefundStatusAfterRefund({ paidCents: 1000, refundedCents: 200 }, 800)).toBe('refunded')
+    expect(getRefundStatusAfterRefund({ paidCents: 1000, refundedCents: 200 }, 500)).toBe('partially_refunded')
   })
 })

@@ -55,9 +55,52 @@
           <div><dt>Refunded</dt><dd>{{ formatPrice(invoice.refundedCents) }}</dd></div>
         </dl>
         <div class="invoice-actions">
-          <button class="btn-secondary" type="button">Refund</button>
-          <button class="btn-secondary" type="button">Void</button>
+          <button class="btn-secondary" type="button" @click="showRefundForm = !showRefundForm">Refund</button>
+          <button
+            v-if="invoice.paidCents === 0"
+            class="btn-secondary"
+            type="button"
+            @click="showVoidForm = !showVoidForm"
+          >
+            Void
+          </button>
         </div>
+
+        <form v-if="showRefundForm" class="action-form" @submit.prevent="addRefund">
+          <label class="field">
+            <span>Refund method</span>
+            <select v-model="refundForm.method" class="form-control">
+              <option value="cash">Cash</option>
+              <option value="credit_card">Credit card</option>
+              <option value="debit_card">Debit card</option>
+              <option value="zelle">Zelle</option>
+              <option value="venmo">Venmo</option>
+              <option value="gift_card">Gift card</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Amount cents</span>
+            <input v-model.number="refundForm.amountCents" class="form-control" type="number" min="1" />
+          </label>
+          <label class="field">
+            <span>Reason</span>
+            <textarea v-model="refundForm.reason" class="form-control" rows="3" required />
+          </label>
+          <button class="btn-primary" type="submit" :disabled="savingRefund">
+            {{ savingRefund ? 'Refunding...' : 'Submit refund' }}
+          </button>
+        </form>
+
+        <form v-if="showVoidForm && invoice.paidCents === 0" class="action-form" @submit.prevent="voidInvoice">
+          <label class="field">
+            <span>Void reason</span>
+            <textarea v-model="voidReason" class="form-control" rows="3" required />
+          </label>
+          <button class="btn-primary" type="submit" :disabled="savingVoid">
+            {{ savingVoid ? 'Voiding...' : 'Void invoice' }}
+          </button>
+        </form>
       </aside>
 
       <section class="surface-panel detail-panel">
@@ -165,12 +208,22 @@ const invoiceId = computed(() => String(route.params.id))
 const invoice = ref<AdminInvoiceDetail | null>(null)
 const loading = ref(true)
 const savingPayment = ref(false)
+const savingRefund = ref(false)
+const savingVoid = ref(false)
+const showRefundForm = ref(false)
+const showVoidForm = ref(false)
 const paymentForm = reactive({
   method: 'cash',
   amountCents: 0,
   reference: '',
   note: ''
 })
+const refundForm = reactive({
+  method: 'cash',
+  amountCents: 0,
+  reason: ''
+})
+const voidReason = ref('')
 
 async function fetchInvoice() {
   loading.value = true
@@ -202,6 +255,43 @@ async function addPayment() {
     await fetchInvoice()
   } finally {
     savingPayment.value = false
+  }
+}
+
+async function addRefund() {
+  savingRefund.value = true
+  try {
+    await $fetch(`${baseUrl}/admin/invoices/${invoiceId.value}/refunds`, {
+      method: 'POST',
+      credentials: 'include',
+      body: {
+        method: refundForm.method,
+        amountCents: refundForm.amountCents,
+        reason: refundForm.reason
+      }
+    })
+    refundForm.amountCents = 0
+    refundForm.reason = ''
+    showRefundForm.value = false
+    await fetchInvoice()
+  } finally {
+    savingRefund.value = false
+  }
+}
+
+async function voidInvoice() {
+  savingVoid.value = true
+  try {
+    await $fetch(`${baseUrl}/admin/invoices/${invoiceId.value}/void`, {
+      method: 'POST',
+      credentials: 'include',
+      body: { reason: voidReason.value }
+    })
+    voidReason.value = ''
+    showVoidForm.value = false
+    await fetchInvoice()
+  } finally {
+    savingVoid.value = false
   }
 }
 
@@ -331,6 +421,14 @@ await fetchInvoice()
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 0.65rem;
   align-items: end;
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+}
+
+.action-form {
+  display: grid;
+  gap: 0.75rem;
   border-top: 1px solid var(--color-border);
   margin-top: 0.9rem;
   padding-top: 0.9rem;

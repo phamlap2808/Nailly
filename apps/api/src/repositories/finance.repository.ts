@@ -59,6 +59,14 @@ type FinanceRefundInput = {
   createdBy: string
 }
 
+export function getRefundStatusAfterRefund(
+  invoice: { paidCents: number; refundedCents: number },
+  refundAmountCents: number
+) {
+  const nextRefundedCents = invoice.refundedCents + refundAmountCents
+  return nextRefundedCents >= invoice.paidCents ? 'refunded' : 'partially_refunded'
+}
+
 export function createFinanceRepository(databaseUrl?: string) {
   const { db } = createDb(databaseUrl)
 
@@ -230,6 +238,13 @@ export function createFinanceRepository(databaseUrl?: string) {
       return db.transaction(async (tx) => {
         const now = new Date()
         const refundedAt = refundInput.refundedAt ? new Date(refundInput.refundedAt) : now
+        const invoice = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.id, invoiceId))
+          .limit(1)
+          .then((rows) => rows[0])
+        const nextStatus = getRefundStatusAfterRefund(invoice, refundInput.amountCents)
         const [refund] = await tx
           .insert(refunds)
           .values({
@@ -247,7 +262,7 @@ export function createFinanceRepository(databaseUrl?: string) {
           .update(invoices)
           .set({
             refundedCents: sql`${invoices.refundedCents} + ${refundInput.amountCents}`,
-            status: 'partially_refunded',
+            status: nextStatus,
             updatedAt: now,
             updatedBy: refundInput.createdBy
           })
