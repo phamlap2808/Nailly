@@ -11,20 +11,89 @@
 
     <div v-if="loading" class="loading-state surface-panel">Loading staff...</div>
 
-    <div v-else class="staff-grid">
-      <article v-for="s in staffList" :key="s.id" class="staff-card surface-panel">
-        <div class="staff-avatar">{{ getInitials(s.name) }}</div>
-        <div class="staff-copy">
-          <div class="staff-name">{{ s.name }}</div>
-          <div class="staff-title">{{ s.title }}</div>
-          <p>{{ s.bio || 'No bio added yet.' }}</p>
+    <section v-else class="staff-directory surface-panel">
+      <div class="staff-toolbar" aria-label="Staff filters">
+        <label class="filter-field search-field">
+          <span>Search</span>
+          <input
+            v-model="staffSearchQuery"
+            class="form-control"
+            type="search"
+            placeholder="Search staff"
+          />
+        </label>
+        <label class="filter-field">
+          <span>Status</span>
+          <select v-model="statusFilter" class="form-control">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+        <label class="filter-field">
+          <span>Rows</span>
+          <select v-model.number="pageSize" class="form-control">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+          </select>
+        </label>
+      </div>
+
+      <div v-if="!filteredStaffList.length" class="empty-state">
+        {{ staffList.length ? 'No staff match the current filters.' : 'No staff added yet.' }}
+      </div>
+
+      <div v-else class="staff-table" role="table" aria-label="Staff">
+        <div class="staff-table-head" role="row">
+          <span>Staff</span>
+          <span>Title</span>
+          <span>Services</span>
+          <span>Status</span>
+          <span />
         </div>
-        <div class="staff-card-footer">
-          <span :class="['active-dot', s.active ? 'on' : 'off']" />
+        <div v-for="s in paginatedStaffList" :key="s.id" class="staff-row" role="row">
+          <div class="staff-person">
+            <div class="staff-avatar">{{ getInitials(s.name) }}</div>
+            <div class="staff-copy">
+              <div class="staff-name">{{ s.name }}</div>
+              <p>{{ s.bio || 'No bio added yet.' }}</p>
+            </div>
+          </div>
+          <span class="staff-meta">{{ s.title }}</span>
+          <span class="staff-meta">{{ getStaffServiceLabel(s) }}</span>
+          <span :class="['status-pill', s.active ? 'status-pill--active' : 'status-pill--inactive']">
+            {{ s.active ? 'Active' : 'Inactive' }}
+          </span>
           <button class="btn-secondary action-btn" @click="openEdit(s)">Edit</button>
         </div>
-      </article>
-    </div>
+      </div>
+
+      <div v-if="filteredStaffList.length" class="pagination-bar" aria-label="Staff pagination">
+        <span>{{ paginationSummary }}</span>
+        <div class="pagination-actions">
+          <button
+            class="btn-secondary"
+            type="button"
+            :disabled="staffPage.currentPage <= 1"
+            @click="goToPage(staffPage.currentPage - 1)"
+          >
+            Previous
+          </button>
+          <span class="page-indicator">
+            Page {{ staffPage.currentPage }} of {{ staffPage.totalPages }}
+          </span>
+          <button
+            class="btn-secondary"
+            type="button"
+            :disabled="staffPage.currentPage >= staffPage.totalPages"
+            @click="goToPage(staffPage.currentPage + 1)"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </section>
 
     <dialog v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <form class="modal-card" @submit.prevent="handleSave">
@@ -64,6 +133,12 @@
 </template>
 
 <script setup lang="ts">
+import type { StaffStatusFilter } from '../../utils/admin-staff-table'
+import {
+  filterStaffRows,
+  getStaffServiceLabel,
+  paginateStaffRows
+} from '../../utils/admin-staff-table'
 import { buildStaffSavePayload } from '../../utils/staff-payload'
 
 definePageMeta({
@@ -99,6 +174,10 @@ const showModal = ref(false)
 const editing = ref<AdminStaff | null>(null)
 const serviceAssignmentsLoaded = ref(false)
 const serviceIdsTouched = ref(false)
+const staffSearchQuery = ref('')
+const statusFilter = ref<StaffStatusFilter>('all')
+const pageSize = ref(5)
+const currentPage = ref(1)
 
 const form = reactive({
   name: '',
@@ -122,6 +201,29 @@ async function fetchData() {
 await fetchData()
 
 const canEditServiceAssignments = computed(() => !editing.value || serviceAssignmentsLoaded.value)
+const filteredStaffList = computed(() =>
+  filterStaffRows(staffList.value, {
+    searchQuery: staffSearchQuery.value,
+    status: statusFilter.value
+  })
+)
+const staffPage = computed(() => paginateStaffRows(filteredStaffList.value, currentPage.value, pageSize.value))
+const paginatedStaffList = computed(() => staffPage.value.items)
+const paginationSummary = computed(() => {
+  if (!staffPage.value.totalItems) return '0 staff'
+
+  return `${staffPage.value.startItem}-${staffPage.value.endItem} of ${staffPage.value.totalItems} staff`
+})
+
+watch([staffSearchQuery, statusFilter, pageSize], () => {
+  currentPage.value = 1
+})
+
+watch(staffPage, (nextPage) => {
+  if (currentPage.value !== nextPage.currentPage) {
+    currentPage.value = nextPage.currentPage
+  }
+})
 
 function getInitials(name: string) {
   return name
@@ -159,6 +261,10 @@ function openEdit(staff: AdminStaff) {
   showModal.value = true
 }
 
+function goToPage(page: number) {
+  currentPage.value = page
+}
+
 async function handleSave() {
   const payload = buildStaffSavePayload(form, {
     includeServiceIds: !editing.value || serviceAssignmentsLoaded.value || serviceIdsTouched.value
@@ -184,9 +290,14 @@ async function handleSave() {
 <style scoped>
 .admin-page-header {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.25rem;
+}
+
+.admin-page-header > .btn-primary {
+  align-self: flex-start;
 }
 
 .admin-page-header h1 {
@@ -199,17 +310,69 @@ async function handleSave() {
   margin: 0.4rem 0 0;
 }
 
-.staff-grid {
+.staff-directory {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1rem;
-}
-
-.staff-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
   gap: 1rem;
   padding: 1rem;
+}
+
+.staff-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(110px, 130px);
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.filter-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.filter-field span {
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.staff-table {
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.staff-table-head,
+.staff-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.5fr) minmax(150px, 0.75fr) minmax(120px, 0.55fr) 100px auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+}
+
+.staff-table-head {
+  background: rgba(239, 226, 214, 0.55);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.staff-row {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-strong);
+}
+
+.staff-row:first-of-type {
+  border-top: none;
+}
+
+.staff-person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .staff-avatar {
@@ -231,44 +394,67 @@ async function handleSave() {
   font-weight: 800;
 }
 
-.staff-title {
-  color: var(--color-primary);
-  font-size: 0.86rem;
-  font-weight: 800;
-  margin-top: 0.12rem;
-}
-
 .staff-copy p {
   color: var(--color-muted);
   font-size: 0.9rem;
   line-height: 1.5;
-  margin: 0.45rem 0 0;
+  margin: 0.18rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.staff-card-footer {
-  grid-column: 1 / -1;
-  display: flex;
+.staff-meta {
+  color: var(--color-ink-soft);
+  font-weight: 800;
+}
+
+.status-pill {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: 0.85rem;
-}
-
-.active-dot {
-  width: 0.55rem;
-  height: 0.55rem;
+  justify-content: center;
+  min-height: 1.6rem;
   border-radius: 999px;
-  background: var(--color-border);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
-.active-dot.on {
-  background: var(--color-success);
+.status-pill--active {
+  background: #e6f0e7;
+  color: var(--color-success);
+}
+
+.status-pill--inactive {
+  background: #ede9e3;
+  color: var(--color-muted);
 }
 
 .action-btn {
   min-height: 2rem;
   padding: 0.35rem 0.7rem;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-indicator {
+  color: var(--color-ink-soft);
+  min-width: 6.5rem;
+  text-align: center;
 }
 
 .modal-overlay {
@@ -348,20 +534,57 @@ async function handleSave() {
   margin-top: 1rem;
 }
 
-.loading-state {
+.loading-state,
+.empty-state {
   color: var(--color-muted);
   padding: 2rem;
+}
+
+.empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+@media (max-width: 980px) {
+  .staff-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .search-field {
+    grid-column: 1 / -1;
+  }
+
+  .staff-table-head {
+    display: none;
+  }
+
+  .staff-row {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .action-btn {
+    justify-self: start;
+  }
 }
 
 @media (max-width: 640px) {
   .admin-page-header,
   .modal-actions,
-  .service-checks {
+  .service-checks,
+  .staff-toolbar,
+  .pagination-bar,
+  .pagination-actions {
     display: grid;
     grid-template-columns: 1fr;
   }
 
-  .staff-card {
+  .admin-page-header > .btn-primary,
+  .pagination-actions button {
+    width: 100%;
+  }
+
+  .staff-person {
     grid-template-columns: 1fr;
   }
 }

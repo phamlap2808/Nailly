@@ -13,9 +13,22 @@
               <h2>Choose your treatment</h2>
             </div>
           </div>
-          <div class="service-options">
+          <div class="service-picker-controls">
+            <label class="field service-search">
+              <span>Search treatment</span>
+              <input
+                v-model="serviceSearchQuery"
+                class="form-control"
+                type="search"
+                placeholder="Search by name or description"
+                @keydown.enter.prevent
+              />
+            </label>
+            <span class="service-result-count">{{ serviceResultLabel }}</span>
+          </div>
+          <div v-if="visibleServices.length" class="service-options">
             <label
-              v-for="svc in services"
+              v-for="svc in visibleServices"
               :key="svc.id"
               :class="['service-option', { selected: form.serviceIds.includes(svc.id) }]"
             >
@@ -25,12 +38,17 @@
                 :checked="form.serviceIds.includes(svc.id)"
                 @change="toggleService(svc.id)"
               />
-              <span>
+              <span class="service-option-copy">
                 <strong>{{ svc.name }}</strong>
-                <small>{{ svc.durationMinutes }} min · {{ formatPrice(svc.priceCents) }}</small>
+                <small v-if="svc.description">{{ svc.description }}</small>
+              </span>
+              <span class="service-option-meta">
+                <span>{{ svc.durationMinutes }} min</span>
+                <strong>{{ formatPrice(svc.priceCents) }}</strong>
               </span>
             </label>
           </div>
+          <p v-else class="service-empty-state">No treatments match your search.</p>
         </section>
 
         <section class="form-section">
@@ -128,6 +146,7 @@
 import { formatPrice } from '../utils/format'
 import { buildBookingPayload } from '../utils/booking-payload'
 import { buildBookingSummary } from '../utils/booking-summary'
+import { filterBookingServices, type BookingPickerService } from '../utils/booking-service-picker'
 import { getAvailabilitySlotState, hasAvailableSlot, type AvailabilitySlot } from '../utils/availability-slots'
 import type { CreateBookingInput } from '@nailly/shared'
 
@@ -135,7 +154,7 @@ const config = useRuntimeConfig()
 const baseUrl = config.public.apiBaseUrl
 
 const props = defineProps<{
-  services: Array<{ id: string; name: string; durationMinutes: number; priceCents: number }>
+  services: BookingPickerService[]
   staff: Array<{ id: string; name: string }>
   shop: { name: string; address: string; phone: string } | null
 }>()
@@ -152,6 +171,21 @@ const form = reactive({
   appointmentDate: '',
   startTime: null as string | null,
   note: ''
+})
+
+const serviceSearchQuery = ref('')
+const visibleServices = computed(() => filterBookingServices(props.services, serviceSearchQuery.value))
+const serviceResultLabel = computed(() => {
+  if (!props.services.length) return 'No treatments available'
+  if (!visibleServices.value.length) return 'No matches'
+
+  const selectedCount = form.serviceIds.length
+  const resultCount = serviceSearchQuery.value.trim()
+    ? `${visibleServices.value.length} of ${props.services.length}`
+    : `${props.services.length}`
+  const selectedLabel = selectedCount === 1 ? '1 selected' : `${selectedCount} selected`
+
+  return selectedCount ? `${resultCount} treatments · ${selectedLabel}` : `${resultCount} treatments`
 })
 
 const summary = computed(() =>
@@ -351,41 +385,105 @@ async function handleSubmit() {
   line-height: 1.2;
 }
 
-.service-options {
+.service-picker-controls {
   display: grid;
-  gap: 0.7rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.service-search {
+  min-width: 0;
+}
+
+.service-result-count {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding-bottom: 0.9rem;
+  white-space: nowrap;
+}
+
+.service-options {
+  max-height: 22rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.45rem;
+  padding-right: 0.35rem;
 }
 
 .service-option {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
   align-items: center;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border-radius: 0.75rem;
   background: var(--color-surface-strong);
-  padding: 0.9rem;
+  padding: 0.65rem 0.75rem;
   cursor: pointer;
 }
 
 .service-option.selected {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(125, 78, 63, 0.12);
+  box-shadow: inset 3px 0 0 var(--color-primary), 0 0 0 3px rgba(125, 78, 63, 0.1);
 }
 
 .service-option input {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1rem;
+  height: 1rem;
   accent-color: var(--color-primary);
 }
 
-.service-option strong,
-.service-option small {
-  display: block;
+.service-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
 }
 
-.service-option small {
+.service-option-copy strong {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-option-copy small {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--color-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.service-option-meta {
+  display: grid;
+  gap: 0.05rem;
+  justify-items: end;
+  min-width: max-content;
+  color: var(--color-muted);
+}
+
+.service-option-meta span {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.service-option-meta strong {
+  color: var(--color-ink-soft);
+  font-size: 0.95rem;
+}
+
+.service-empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-card);
+  margin: 0;
+  padding: 1rem;
+  color: var(--color-muted);
+  text-align: center;
 }
 
 .field-grid {
@@ -423,6 +521,36 @@ async function handleSubmit() {
 @media (max-width: 560px) {
   .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .service-picker-controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .service-result-count {
+    padding-bottom: 0;
+  }
+
+  .service-options {
+    max-height: 20rem;
+  }
+
+  .service-option {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .service-option input {
+    margin-top: 0.15rem;
+  }
+
+  .service-option-meta {
+    grid-column: 2;
+    grid-template-columns: repeat(2, max-content);
+    justify-content: start;
+    justify-items: start;
+    column-gap: 0.55rem;
   }
 
   .submit-btn {

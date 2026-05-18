@@ -64,6 +64,18 @@ function timeToMinutes(time: string): number {
   return toMinutes(time)
 }
 
+function minutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}
+
+function dateFromOffset(offset: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + offset)
+  return date.toISOString().slice(0, 10)
+}
+
 async function seed() {
   const { client, db } = createDb()
 
@@ -109,6 +121,7 @@ async function seed() {
 
   // Insert services
   const serviceIds = new Map<string, string>()
+  const serviceDurations = new Map<string, number>()
   for (const svc of demoSeed.services) {
     const categoryId = categoryIds.get(svc.categoryName)!
     const [row] = await db
@@ -124,6 +137,7 @@ async function seed() {
       })
       .returning({ id: schema.services.id })
     serviceIds.set(svc.name, row.id)
+    serviceDurations.set(svc.name, svc.durationMinutes)
   }
   console.log(`Inserted: ${demoSeed.services.length} services`)
 
@@ -174,6 +188,54 @@ async function seed() {
     })
   }
   console.log(`Inserted: ${staffIds.size * 6} availability rules`)
+
+  // Insert demo bookings to make the booking UI show realistic blocked slots
+  for (const bookingDemo of demoSeed.bookings) {
+    const staffId = staffIds.get(bookingDemo.staffName)
+    if (!staffId) {
+      throw new Error(`Unknown booking staff: ${bookingDemo.staffName}`)
+    }
+
+    const bookingServiceIds = bookingDemo.serviceNames.map((serviceName) => {
+      const serviceId = serviceIds.get(serviceName)
+      if (!serviceId) {
+        throw new Error(`Unknown booking service: ${serviceName}`)
+      }
+      return serviceId
+    })
+
+    const durationMinutes = bookingDemo.serviceNames.reduce((sum, serviceName) => {
+      const duration = serviceDurations.get(serviceName)
+      if (!duration) {
+        throw new Error(`Unknown booking service duration: ${serviceName}`)
+      }
+      return sum + duration
+    }, 0)
+
+    const [booking] = await db
+      .insert(schema.bookings)
+      .values({
+        staffId,
+        customerName: bookingDemo.customerName,
+        phone: bookingDemo.phone,
+        email: bookingDemo.email,
+        partySize: bookingDemo.partySize,
+        appointmentDate: dateFromOffset(bookingDemo.relativeDayOffset),
+        startTime: bookingDemo.startTime,
+        endTime: minutesToTime(timeToMinutes(bookingDemo.startTime) + durationMinutes),
+        status: bookingDemo.status,
+        note: bookingDemo.note
+      })
+      .returning({ id: schema.bookings.id })
+
+    await db.insert(schema.bookingServices).values(
+      bookingServiceIds.map((serviceId) => ({
+        bookingId: booking.id,
+        serviceId
+      }))
+    )
+  }
+  console.log(`Inserted: ${demoSeed.bookings.length} demo bookings`)
 
   // Insert admin users with hashed passwords
   for (const admin of demoSeed.adminUsers) {

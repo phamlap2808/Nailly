@@ -22,12 +22,16 @@
 </template>
 
 <script setup lang="ts">
+import { resolveRuntimeApiBaseUrl } from '../utils/api-url'
+
 const config = useRuntimeConfig()
 const { data: site } = await useFetch<{
   shop: { name: string; address: string; phone: string } | null
-  services: Array<{ id: string; name: string; durationMinutes: number; priceCents: number }>
+  services: Array<{ id: string; name: string; description: string; durationMinutes: number; priceCents: number }>
   staff: Array<{ id: string; name: string }>
-}>(`${config.public.apiBaseUrl}/public/site`)
+}>('/public/site', {
+  baseURL: resolveRuntimeApiBaseUrl(config, import.meta.server)
+})
 
 useSeoMeta({
   title: 'Book an Appointment',

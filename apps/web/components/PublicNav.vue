@@ -6,14 +6,22 @@
         <span>Luma Nail Studio</span>
       </NuxtLink>
       <nav class="nav-links" aria-label="Public navigation">
-        <NuxtLink to="/#services">Services</NuxtLink>
-        <NuxtLink to="/#gallery">Gallery</NuxtLink>
-        <NuxtLink to="/booking" class="nav-cta">{{ $t('nav.book') }}</NuxtLink>
-        <NuxtLink to="/admin/login" class="admin-link">{{ $t('nav.admin') }}</NuxtLink>
+        <NuxtLink
+          v-for="item in publicNavItems"
+          :key="item.to"
+          :to="item.to"
+          :class="{ 'nav-cta': item.cta }"
+        >
+          {{ item.labelKey ? $t(item.labelKey) : item.label }}
+        </NuxtLink>
       </nav>
     </div>
   </header>
 </template>
+
+<script setup lang="ts">
+import { publicNavItems } from '../utils/public-nav'
+</script>
 
 <style scoped>
 .public-nav {
@@ -98,10 +106,6 @@
   color: #fff;
 }
 
-.admin-link {
-  color: var(--color-muted);
-}
-
 @media (max-width: 760px) {
   .nav-inner {
     grid-template-columns: 1fr;
@@ -112,7 +116,7 @@
 
   .nav-links {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
   }
 

@@ -1,5 +1,7 @@
 {
   "nav": {
+    "services": "Services",
+    "gallery": "Gallery",
     "book": "Book appointment",
     "admin": "Admin"
   },

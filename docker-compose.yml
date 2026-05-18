@@ -82,6 +82,8 @@ services:
     working_dir: /workspace
     env_file:
       - .env
+    environment:
+      API_INTERNAL_BASE_URL: http://api:8787
     volumes:
       - .:/workspace
       - bun-cache:/root/.bun/install/cache

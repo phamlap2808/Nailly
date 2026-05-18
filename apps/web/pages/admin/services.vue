@@ -87,46 +87,86 @@
           </div>
         </div>
 
-        <div class="detail-stats">
-          <div>
-            <span>Total</span>
-            <strong>{{ selectedNode.serviceCount }}</strong>
-          </div>
-          <div>
-            <span>Active</span>
-            <strong>{{ selectedNode.activeServiceCount }}</strong>
-          </div>
-          <div>
-            <span>Inactive</span>
-            <strong>{{ selectedNode.inactiveServiceCount }}</strong>
-          </div>
-        </div>
-
-        <div v-if="!visibleServices.length" class="empty-state">
-          No services in this category yet.
-        </div>
-
-        <div v-else class="service-table" role="table" aria-label="Services">
-          <div class="service-table-head" role="row">
-            <span>Item</span>
-            <span>Duration</span>
-            <span>Price</span>
+        <div class="catalog-toolbar" aria-label="Catalog filters">
+          <label class="filter-field search-field">
+            <span>Search</span>
+            <input
+              v-model="serviceSearchQuery"
+              class="form-control"
+              type="search"
+              placeholder="Search services"
+            />
+          </label>
+          <label class="filter-field">
             <span>Status</span>
-            <span />
-          </div>
-          <div v-for="svc in visibleServices" :key="svc.id" class="service-row" role="row">
-            <div class="service-main">
-              <strong>{{ svc.name }}</strong>
-              <p>{{ svc.description }}</p>
-            </div>
-            <span class="service-meta">{{ svc.durationMinutes }} min</span>
-            <span class="service-meta">{{ formatPrice(svc.priceCents) }}</span>
-            <span :class="['status-pill', svc.active ? 'status-pill--active' : 'status-pill--inactive']">
-              {{ svc.active ? 'Active' : 'Inactive' }}
-            </span>
-            <button class="btn-secondary action-btn" @click="openEdit(svc)">Edit</button>
-          </div>
+            <select v-model="statusFilter" class="form-control">
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+          <label class="filter-field">
+            <span>Rows</span>
+            <select v-model.number="pageSize" class="form-control">
+              <option :value="5">5</option>
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+            </select>
+          </label>
         </div>
+
+        <div v-if="!filteredServices.length" class="empty-state">
+          {{ visibleServices.length ? 'No services match the current filters.' : 'No services in this category yet.' }}
+        </div>
+
+        <template v-else>
+          <div class="service-table" role="table" aria-label="Services">
+            <div class="service-table-head" role="row">
+              <span>Item</span>
+              <span>Duration</span>
+              <span>Price</span>
+              <span>Status</span>
+              <span />
+            </div>
+            <div v-for="svc in paginatedServices" :key="svc.id" class="service-row" role="row">
+              <div class="service-main">
+                <strong>{{ svc.name }}</strong>
+                <p>{{ svc.description }}</p>
+              </div>
+              <span class="service-meta">{{ svc.durationMinutes }} min</span>
+              <span class="service-meta">{{ formatPrice(svc.priceCents) }}</span>
+              <span :class="['status-pill', svc.active ? 'status-pill--active' : 'status-pill--inactive']">
+                {{ svc.active ? 'Active' : 'Inactive' }}
+              </span>
+              <button class="btn-secondary action-btn" @click="openEdit(svc)">Edit</button>
+            </div>
+          </div>
+
+          <div class="pagination-bar" aria-label="Catalog pagination">
+            <span>{{ paginationSummary }}</span>
+            <div class="pagination-actions">
+              <button
+                class="btn-secondary"
+                type="button"
+                :disabled="catalogPage.currentPage <= 1"
+                @click="goToPage(catalogPage.currentPage - 1)"
+              >
+                Previous
+              </button>
+              <span class="page-indicator">
+                Page {{ catalogPage.currentPage }} of {{ catalogPage.totalPages }}
+              </span>
+              <button
+                class="btn-secondary"
+                type="button"
+                :disabled="catalogPage.currentPage >= catalogPage.totalPages"
+                @click="goToPage(catalogPage.currentPage + 1)"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </template>
       </section>
     </div>
 
@@ -194,6 +234,11 @@
 
 <script setup lang="ts">
 import { formatPrice } from '../../utils/format'
+import type { CatalogStatusFilter } from '../../utils/admin-service-catalog'
+import {
+  filterCatalogServices,
+  paginateCatalogServices
+} from '../../utils/admin-service-catalog'
 import {
   buildServiceHierarchy,
   getSelectedCategoryNode,
@@ -233,6 +278,10 @@ const showCategoryModal = ref(false)
 const editing = ref<AdminService | null>(null)
 const editingCategory = ref<ServiceCategory | null>(null)
 const selectedCategoryId = ref('all')
+const serviceSearchQuery = ref('')
+const statusFilter = ref<CatalogStatusFilter>('all')
+const pageSize = ref(5)
+const currentPage = ref(1)
 
 const form = reactive({
   name: '',
@@ -252,6 +301,29 @@ const categoryForm = reactive({
 const hierarchy = computed(() => buildServiceHierarchy(categories.value, services.value))
 const selectedNode = computed(() => getSelectedCategoryNode(hierarchy.value, selectedCategoryId.value))
 const visibleServices = computed(() => getServicesForCategorySelection(services.value, selectedNode.value.id))
+const filteredServices = computed(() =>
+  filterCatalogServices(visibleServices.value, {
+    searchQuery: serviceSearchQuery.value,
+    status: statusFilter.value
+  })
+)
+const catalogPage = computed(() => paginateCatalogServices(filteredServices.value, currentPage.value, pageSize.value))
+const paginatedServices = computed(() => catalogPage.value.items)
+const paginationSummary = computed(() => {
+  if (!catalogPage.value.totalItems) return '0 services'
+
+  return `${catalogPage.value.startItem}-${catalogPage.value.endItem} of ${catalogPage.value.totalItems} services`
+})
+
+watch([selectedCategoryId, serviceSearchQuery, statusFilter, pageSize], () => {
+  currentPage.value = 1
+})
+
+watch(catalogPage, (nextPage) => {
+  if (currentPage.value !== nextPage.currentPage) {
+    currentPage.value = nextPage.currentPage
+  }
+})
 
 async function fetchData() {
   loading.value = true
@@ -278,6 +350,10 @@ function openCreate(defaultCategoryId?: string) {
   form.priceCents = 0
   form.active = true
   showModal.value = true
+}
+
+function goToPage(page: number) {
+  currentPage.value = page
 }
 
 function openEdit(svc: AdminService) {
@@ -489,33 +565,23 @@ async function handleSave() {
   margin: 0.35rem 0 0;
 }
 
-.detail-stats {
+.catalog-toolbar {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(110px, 130px);
   gap: 0.75rem;
+  align-items: end;
   margin: 1rem 0;
 }
 
-.detail-stats div {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-strong);
-  padding: 0.75rem;
+.filter-field {
+  display: grid;
+  gap: 0.35rem;
 }
 
-.detail-stats span {
-  display: block;
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.detail-stats strong {
-  display: block;
-  font-size: 1.35rem;
-  line-height: 1.1;
-  margin-top: 0.25rem;
+.filter-field span {
+  color: var(--color-ink-soft);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .service-table {
@@ -614,6 +680,29 @@ async function handleSave() {
   padding: 0.35rem 0.7rem;
 }
 
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-top: 0.8rem;
+}
+
+.pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-indicator {
+  color: var(--color-ink-soft);
+  min-width: 6.5rem;
+  text-align: center;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -706,6 +795,14 @@ async function handleSave() {
     gap: 0.65rem;
   }
 
+  .catalog-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .search-field {
+    grid-column: 1 / -1;
+  }
+
   .action-btn {
     justify-self: start;
   }
@@ -731,8 +828,19 @@ async function handleSave() {
     margin-bottom: 1rem;
   }
 
-  .detail-stats {
+  .catalog-toolbar,
+  .pagination-bar,
+  .pagination-actions {
     grid-template-columns: 1fr;
+  }
+
+  .pagination-bar,
+  .pagination-actions {
+    display: grid;
+  }
+
+  .pagination-actions button {
+    width: 100%;
   }
 
   .field-row {

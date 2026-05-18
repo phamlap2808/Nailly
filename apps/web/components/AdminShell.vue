@@ -38,6 +38,17 @@ import type { AdminRole } from '@nailly/shared'
 const session = useSessionStore()
 const navItems = computed(() => adminNavItems((session.user?.role ?? 'staff') as AdminRole))
 
+onMounted(() => {
+  document.documentElement.classList.add('admin-root-lock')
+  document.body.classList.add('admin-root-lock')
+  document.scrollingElement?.scrollTo({ top: 0, left: 0 })
+})
+
+onBeforeUnmount(() => {
+  document.documentElement.classList.remove('admin-root-lock')
+  document.body.classList.remove('admin-root-lock')
+})
+
 async function handleLogout() {
   await session.logout()
   navigateTo('/admin/login')
@@ -45,17 +56,33 @@ async function handleLogout() {
 </script>
 
 <style scoped>
+:global(html.admin-root-lock),
+:global(body.admin-root-lock) {
+  height: 100%;
+  overflow: hidden;
+}
+
+:global(body.admin-root-lock #__nuxt) {
+  height: 100%;
+  overflow: hidden;
+}
+
 .admin-shell {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
-  min-height: 100vh;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--color-bg);
 }
 
 .admin-sidebar {
   position: sticky;
   top: 0;
-  height: 100vh;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--color-ink);
@@ -158,12 +185,15 @@ async function handleLogout() {
 
 .admin-main {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   padding: 2rem;
 }
 
 @media (max-width: 820px) {
   .admin-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .admin-sidebar {

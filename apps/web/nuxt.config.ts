@@ -1,7 +1,6 @@
 export default defineNuxtConfig({
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   modules: [
-    '@nuxt/devtools',
     '@nuxt/icon',
     '@nuxt/eslint',
     '@nuxt/fonts',
@@ -12,6 +11,7 @@ export default defineNuxtConfig({
   ],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
+    apiBaseUrl: process.env.API_INTERNAL_BASE_URL ?? process.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787',
     public: {
       apiBaseUrl: process.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8787'
     }

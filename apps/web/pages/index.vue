@@ -110,13 +110,14 @@
     <footer class="footer">
       <div class="container footer-content">
         <span>{{ site?.shop?.name ?? 'Luma Nail Studio' }}</span>
-        <NuxtLink to="/admin/login">{{ $t('nav.admin') }}</NuxtLink>
       </div>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
+import { resolveRuntimeApiBaseUrl } from '../utils/api-url'
+
 interface SitePayload {
   shop: { name: string; tagline: string; address: string; phone: string; seoDescription: string } | null
   services: Array<{ id: string; name: string; description: string; durationMinutes: number; priceCents: number }> | null
@@ -142,8 +143,9 @@ const whyReasons = [
   }
 ]
 
+const config = useRuntimeConfig()
 const { data: site } = await useFetch<SitePayload>('/public/site', {
-  baseURL: useRuntimeConfig().public.apiBaseUrl
+  baseURL: resolveRuntimeApiBaseUrl(config, import.meta.server)
 })
 
 const heroImage = computed(() => site.value?.gallery?.[0] ?? null)
