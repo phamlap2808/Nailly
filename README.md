@@ -1,6 +1,6 @@
 # Nailly
 
-Nailly là MVP full-stack cho salon nail: public site, booking flow, admin dashboard, quản lý dịch vụ, nhân sự, media và thông tin salon.
+Nailly là MVP full-stack cho salon nail: public site, booking flow, admin dashboard, quản lý dịch vụ, nhân sự, media, thông tin salon và finance suite cho POS, invoices, payments, refunds, reports.
 
 Stack chính:
 
@@ -81,8 +81,8 @@ MinIO demo:
 Role access:
 
 - `owner`: toàn quyền admin.
-- `manager`: overview, bookings, services, staff, media, settings.
-- `staff`: chỉ quản lý bookings.
+- `manager`: overview, bookings, POS, invoices, reports, services, staff, media, settings.
+- `staff`: bookings, POS và invoices.
 
 ## Lệnh Thường Dùng
 
@@ -119,6 +119,25 @@ Chạy API hoặc web riêng:
 docker compose up api
 docker compose up web
 ```
+
+## Finance Suite Smoke Test
+
+1. Start stack:
+
+```bash
+docker compose up api web
+```
+
+2. Nếu database vừa reset, seed demo data:
+
+```bash
+docker compose run --rm tooling bun --filter @nailly/api db:seed
+```
+
+3. Log in at http://localhost:3000/admin/login with `owner@lumanails.example` / `owner-password`.
+4. Open http://localhost:3000/admin/pos, create a walk-in invoice, and record payment.
+5. Open http://localhost:3000/admin/invoices, view the invoice, print receipt/A4, and issue a partial refund.
+6. Open http://localhost:3000/admin/reports and export invoices CSV.
 
 ## Verification
 
