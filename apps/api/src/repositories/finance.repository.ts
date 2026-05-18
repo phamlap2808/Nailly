@@ -179,10 +179,14 @@ export function createFinanceRepository(databaseUrl?: string) {
         .from(invoiceItems)
         .where(eq(invoiceItems.invoiceId, id))
         .orderBy(invoiceItems.sortOrder)
+      const paymentRows = await db.select().from(payments).where(eq(payments.invoiceId, id))
+      const refundRows = await db.select().from(refunds).where(eq(refunds.invoiceId, id))
 
       return {
         ...invoice,
-        items
+        items,
+        payments: paymentRows,
+        refunds: refundRows
       }
     },
 
