@@ -65,6 +65,15 @@ function timeToMinutes(time: string): number {
   return toMinutes(time)
 }
 
+function requiredLookup<T>(map: Map<string, T>, key: string, label: string): T {
+  const value = map.get(key)
+  if (value === undefined) {
+    throw new Error(`Missing ${label} for demo seed reference: ${key}`)
+  }
+
+  return value
+}
+
 async function seed() {
   const { client, db } = createDb()
 
@@ -161,6 +170,38 @@ async function seed() {
     `Inserted: ${staffIds.size * serviceIds.size} staff-service mappings`
   )
 
+  // Insert demo bookings used by booking-sourced finance invoices
+  const bookingIdsByCustomerName = new Map<string, string>()
+  for (const booking of demoSeed.bookings) {
+    const staffId = requiredLookup(staffIds, booking.staffName, 'staff')
+    const [row] = await db
+      .insert(schema.bookings)
+      .values({
+        staffId,
+        customerName: booking.customerName,
+        phone: booking.phone,
+        email: booking.email || null,
+        partySize: 1,
+        appointmentDate: booking.appointmentDate,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: booking.status,
+        note: booking.note ?? null,
+        source: booking.source
+      })
+      .returning({ id: schema.bookings.id })
+
+    bookingIdsByCustomerName.set(booking.customerName, row.id)
+
+    await db.insert(schema.bookingServices).values(
+      booking.serviceNames.map((serviceName) => ({
+        bookingId: row.id,
+        serviceId: requiredLookup(serviceIds, serviceName, 'service')
+      }))
+    )
+  }
+  console.log(`Inserted: ${demoSeed.bookings.length} bookings`)
+
   // Insert availability rules (weekdays 09:00-19:30, Saturday 09:00-18:00)
   for (const [, staffId] of staffIds) {
     for (let dayOfWeek = 1; dayOfWeek <= 5; dayOfWeek++) {
@@ -187,13 +228,21 @@ async function seed() {
   for (const invoiceDemo of demoSeed.financeInvoices) {
     await db.transaction(async (tx) => {
       const itemInputs = invoiceDemo.items.map((item, index) => {
-        const serviceId = item.serviceName ? serviceIds.get(item.serviceName) ?? null : null
-        const staffId = item.staffName ? staffIds.get(item.staffName) ?? null : null
-        const commissionRateBps = item.staffName ? staffCommissionRates.get(item.staffName) ?? 0 : 0
+        const serviceName = 'serviceName' in item && typeof item.serviceName === 'string' ? item.serviceName : undefined
+        const staffName = 'staffName' in item && typeof item.staffName === 'string' ? item.staffName : undefined
+        const manualName = 'name' in item && typeof item.name === 'string' ? item.name : undefined
+        const serviceId = serviceName ? requiredLookup(serviceIds, serviceName, 'service') : null
+        const staffId = staffName ? requiredLookup(staffIds, staffName, 'staff') : null
+        const commissionRateBps = staffName ? requiredLookup(staffCommissionRates, staffName, 'staff commission rate') : 0
+        const name = serviceName ?? manualName
+        if (!name) {
+          throw new Error(`Missing item name for demo invoice: ${invoiceDemo.invoiceNumber}`)
+        }
         const lineTotalCents = item.quantity * item.unitPriceCents
 
         return {
           item,
+          name,
           serviceId,
           staffId,
           commissionRateBps,
@@ -220,7 +269,9 @@ async function seed() {
         .values({
           invoiceNumber: invoiceDemo.invoiceNumber,
           source: invoiceDemo.source,
-          bookingId: null,
+          bookingId: invoiceDemo.bookingCustomerName
+            ? requiredLookup(bookingIdsByCustomerName, invoiceDemo.bookingCustomerName, 'booking')
+            : null,
           customerName: invoiceDemo.customerName,
           customerPhone: invoiceDemo.customerPhone || null,
           customerEmail: invoiceDemo.customerEmail || null,
@@ -245,7 +296,7 @@ async function seed() {
           itemType: input.item.itemType,
           serviceId: input.serviceId,
           staffId: input.staffId,
-          name: input.item.serviceName,
+          name: input.name,
           description: null,
           quantity: input.item.quantity,
           unitPriceCents: input.item.unitPriceCents,

@@ -1,18 +1,42 @@
 import type {
   AdminRole,
+  BookingStatus,
   FinancePaymentMethod,
   InvoiceItemType,
   InvoiceSource,
   InvoiceStatus
 } from '@nailly/shared'
 
-interface FinanceInvoiceDemoItem {
-  itemType: InvoiceItemType
-  serviceName?: string
+interface FinanceInvoiceDemoServiceItem {
+  itemType: Extract<InvoiceItemType, 'service'>
+  serviceName: string
   staffName?: string
-  name?: string
   quantity: number
   unitPriceCents: number
+}
+
+interface FinanceInvoiceDemoManualItem {
+  itemType: Extract<InvoiceItemType, 'manual'>
+  name: string
+  staffName?: string
+  quantity: number
+  unitPriceCents: number
+}
+
+type FinanceInvoiceDemoItem = FinanceInvoiceDemoServiceItem | FinanceInvoiceDemoManualItem
+
+interface BookingDemo {
+  customerName: string
+  phone: string
+  email: string
+  staffName: string
+  serviceNames: string[]
+  appointmentDate: string
+  startTime: string
+  endTime: string
+  status: BookingStatus
+  note?: string
+  source: string
 }
 
 interface FinanceInvoiceDemoPayment {
@@ -41,6 +65,11 @@ interface FinanceInvoiceDemo {
   items: FinanceInvoiceDemoItem[]
   payments: FinanceInvoiceDemoPayment[]
   refunds: FinanceInvoiceDemoRefund[]
+}
+
+interface DemoSeed {
+  bookings: BookingDemo[]
+  financeInvoices: FinanceInvoiceDemo[]
 }
 
 export const demoSeed = {
@@ -121,6 +150,34 @@ export const demoSeed = {
     { name: 'Ari Morgan', title: 'Nail Artist', bio: 'Known for clean manicures and playful minimal art.', commissionRateBps: 4000 },
     { name: 'Nina Patel', title: 'Pedicure Specialist', bio: 'Focuses on restorative foot care and calm service.', commissionRateBps: 4200 }
   ],
+  bookings: [
+    {
+      customerName: 'Olivia Carter',
+      phone: '+1 555 0101',
+      email: 'olivia@example.com',
+      staffName: 'Maya Chen',
+      serviceNames: ['Gel Manicure', 'Minimal Nail Art'],
+      appointmentDate: '2026-05-20',
+      startTime: '10:00',
+      endTime: '11:30',
+      status: 'completed',
+      note: 'Loyalty discount applied at checkout.',
+      source: 'public_web'
+    },
+    {
+      customerName: 'Grace Nguyen',
+      phone: '+1 555 0104',
+      email: 'grace@example.com',
+      staffName: 'Nina Patel',
+      serviceNames: ['Spa Pedicure'],
+      appointmentDate: '2026-05-20',
+      startTime: '14:00',
+      endTime: '15:15',
+      status: 'completed',
+      note: 'Prefers quiet appointment.',
+      source: 'public_web'
+    }
+  ],
   financeInvoices: [
     {
       invoiceNumber: 'INV-DEMO-1001',
@@ -192,4 +249,4 @@ export const demoSeed = {
     { email: 'manager@lumanails.example', password: 'manager-password', name: 'Manager Demo', role: 'manager' as AdminRole },
     { email: 'staff@lumanails.example', password: 'staff-password', name: 'Staff Demo', role: 'staff' as AdminRole }
   ]
-} satisfies { financeInvoices: FinanceInvoiceDemo[] } & Record<string, unknown>
+} satisfies DemoSeed & Record<string, unknown>

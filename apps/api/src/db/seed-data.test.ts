@@ -36,4 +36,13 @@ describe('demo seed data', () => {
     expect(demoSeed.financeInvoices.some((invoice) => invoice.source === 'walk_in')).toBe(true)
     expect(demoSeed.financeInvoices.some((invoice) => invoice.refunds.length > 0)).toBe(true)
   })
+
+  it('includes demo bookings for booking-sourced finance invoices', () => {
+    const bookingCustomerNames = new Set(demoSeed.bookings.map((booking) => booking.customerName))
+    const invoiceBookingCustomerNames = demoSeed.financeInvoices
+      .filter((invoice) => invoice.source === 'booking')
+      .map((invoice) => invoice.bookingCustomerName)
+
+    expect(invoiceBookingCustomerNames.every((name) => name && bookingCustomerNames.has(name))).toBe(true)
+  })
 })
