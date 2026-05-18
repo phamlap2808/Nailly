@@ -119,7 +119,7 @@ export function createFinanceService(repository: FinanceRepository) {
       const invoice = await repository.getInvoiceWithItems(invoiceId)
 
       if (!invoice) {
-        throw new ApiError(404, 'invoice_not_found', 'Invoice not found.')
+        throw new ApiError(404, 'not_found', 'Invoice not found.')
       }
 
       const refundableCents = invoice.paidCents - invoice.refundedCents
@@ -138,10 +138,10 @@ export function createFinanceService(repository: FinanceRepository) {
       const invoice = await repository.getInvoiceWithItems(invoiceId)
 
       if (!invoice) {
-        throw new ApiError(404, 'invoice_not_found', 'Invoice not found.')
+        throw new ApiError(404, 'not_found', 'Invoice not found.')
       }
 
-      if (invoice.status === 'paid') {
+      if (invoice.paidCents > 0) {
         throw new ApiError(400, 'cannot_void_paid_invoice', 'Paid invoices cannot be voided.')
       }
 

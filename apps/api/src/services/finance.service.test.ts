@@ -71,4 +71,45 @@ describe('createFinanceService', () => {
       }, { adminUserId: 'admin-1' })
     ).rejects.toBeInstanceOf(ApiError)
   })
+
+  it('uses not_found when refunding a missing invoice', async () => {
+    const repository = createRepository()
+    repository.getInvoiceWithItems.mockResolvedValue(null)
+    const service = createFinanceService(repository)
+
+    await expect(
+      service.refundInvoice('invoice-missing', {
+        amountCents: 100,
+        method: 'cash',
+        reason: 'Missing invoice'
+      }, { adminUserId: 'admin-1' })
+    ).rejects.toMatchObject({ code: 'not_found' })
+  })
+
+  it('uses not_found when voiding a missing invoice', async () => {
+    const repository = createRepository()
+    repository.getInvoiceWithItems.mockResolvedValue(null)
+    const service = createFinanceService(repository)
+
+    await expect(
+      service.voidInvoice('invoice-missing', 'Created in error', { adminUserId: 'admin-1' })
+    ).rejects.toMatchObject({ code: 'not_found' })
+  })
+
+  it('rejects voiding invoices with any paid balance', async () => {
+    const repository = createRepository()
+    repository.getInvoiceWithItems.mockResolvedValue({
+      id: 'invoice-1',
+      status: 'open',
+      paidCents: 500,
+      refundedCents: 0,
+      totalCents: 1000
+    })
+    const service = createFinanceService(repository)
+
+    await expect(
+      service.voidInvoice('invoice-1', 'Created in error', { adminUserId: 'admin-1' })
+    ).rejects.toMatchObject({ code: 'cannot_void_paid_invoice' })
+    expect(repository.voidInvoice).not.toHaveBeenCalled()
+  })
 })
