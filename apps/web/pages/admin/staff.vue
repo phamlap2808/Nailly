@@ -49,6 +49,7 @@
           <span>Staff</span>
           <span>Title</span>
           <span>Services</span>
+          <span>Commission</span>
           <span>Status</span>
           <span />
         </div>
@@ -62,6 +63,7 @@
           </div>
           <span class="staff-meta">{{ s.title }}</span>
           <span class="staff-meta">{{ getStaffServiceLabel(s) }}</span>
+          <span class="staff-meta">{{ formatCommissionRate(s.commissionRateBps) }}</span>
           <span :class="['status-pill', s.active ? 'status-pill--active' : 'status-pill--inactive']">
             {{ s.active ? 'Active' : 'Inactive' }}
           </span>
@@ -110,6 +112,10 @@
           <span>Bio</span>
           <textarea v-model="form.bio" class="form-control" rows="3" />
         </label>
+        <label class="field">
+          <span>Commission %</span>
+          <input v-model.number="commissionPercent" class="form-control" type="number" min="0" max="100" step="0.01" />
+        </label>
         <fieldset v-if="canEditServiceAssignments" class="field service-picker">
           <legend>Services</legend>
           <div class="service-checks">
@@ -136,6 +142,7 @@
 import type { StaffStatusFilter } from '../../utils/admin-staff-table'
 import {
   filterStaffRows,
+  formatCommissionRate,
   getStaffServiceLabel,
   paginateStaffRows
 } from '../../utils/admin-staff-table'
@@ -161,6 +168,7 @@ interface AdminStaff {
   title: string
   bio: string
   active: boolean
+  commissionRateBps: number
   staffServices?: StaffServiceLink[]
 }
 
@@ -184,6 +192,7 @@ const form = reactive({
   title: '',
   bio: '',
   active: true,
+  commissionRateBps: 4000,
   serviceIds: [] as string[]
 })
 
@@ -225,6 +234,13 @@ watch(staffPage, (nextPage) => {
   }
 })
 
+const commissionPercent = computed({
+  get: () => form.commissionRateBps / 100,
+  set: (value: number) => {
+    form.commissionRateBps = Math.round(Number(value || 0) * 100)
+  }
+})
+
 function getInitials(name: string) {
   return name
     .split(' ')
@@ -241,6 +257,7 @@ function openCreate() {
   form.title = ''
   form.bio = ''
   form.active = true
+  form.commissionRateBps = 4000
   form.serviceIds = []
   serviceAssignmentsLoaded.value = true
   serviceIdsTouched.value = false
@@ -253,6 +270,7 @@ function openEdit(staff: AdminStaff) {
   form.title = staff.title
   form.bio = staff.bio ?? ''
   form.active = staff.active
+  form.commissionRateBps = staff.commissionRateBps ?? 4000
   serviceAssignmentsLoaded.value = Array.isArray(staff.staffServices)
   serviceIdsTouched.value = false
   form.serviceIds = serviceAssignmentsLoaded.value
@@ -344,7 +362,7 @@ async function handleSave() {
 .staff-table-head,
 .staff-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) minmax(150px, 0.75fr) minmax(120px, 0.55fr) 100px auto;
+  grid-template-columns: minmax(260px, 1.5fr) minmax(150px, 0.75fr) minmax(120px, 0.55fr) 120px 100px auto;
   gap: 1rem;
   align-items: center;
   padding: 0.85rem 1rem;

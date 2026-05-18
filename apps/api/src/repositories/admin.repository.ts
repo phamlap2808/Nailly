@@ -104,7 +104,7 @@ export function createAdminRepository(databaseUrl?: string) {
       return db.select().from(staff)
     },
 
-    async createStaff(input: { name: string; title: string; bio: string }) {
+    async createStaff(input: { name: string; title: string; bio: string; commissionRateBps?: number }) {
       const [row] = await db.insert(staff).values(input).returning()
       return row
     },

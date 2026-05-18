@@ -6,8 +6,11 @@ import { verifyAdminToken, type AdminProfile } from '../http/auth'
 import { ApiError, errorResponse } from '../http/errors'
 import { canAccessRole } from '../http/rbac'
 import { createAdminRepository } from '../repositories/admin.repository'
+import { createFinanceRepository } from '../repositories/finance.repository'
 import { RedisJsonCache } from '../cache/redis'
 import { createAdminService } from '../services/admin.service'
+import { invoicesToCsv, paymentsToCsv, payrollToCsv, refundsToCsv } from '../services/finance-export'
+import { createFinanceService } from '../services/finance.service'
 import { assertSupportedImage } from '../services/media.service'
 import { createMinioStorage } from '../storage/minio'
 
@@ -19,6 +22,8 @@ export function adminRoutes(
 ) {
   const router = new Hono<AdminEnv>()
   const service = createAdminService(repository, cache)
+  const financeRepository = createFinanceRepository()
+  const financeService = createFinanceService(financeRepository)
 
   // Auth middleware
   router.use('*', async (c, next) => {
@@ -228,6 +233,97 @@ export function adminRoutes(
       return errorResponse(c, new ApiError(404, 'not_found', 'Media not found.'))
     }
     return c.json(result)
+  })
+
+  // Finance (staff+ / manager+)
+  router.get('/invoices', guard('manager'), async (c) => {
+    const result = await financeRepository.listInvoices()
+    return c.json(result)
+  })
+
+  router.post('/invoices', guard('staff'), async (c) => {
+    const body = await c.req.json()
+    const user = c.get('adminUser')
+    const result = await financeService.createInvoice(body, { adminUserId: user.id })
+    return c.json(result, 201)
+  })
+
+  router.get('/invoices/:id', guard('staff'), async (c) => {
+    const invoice = await financeRepository.getInvoiceWithItems(c.req.param('id'))
+    if (!invoice) {
+      return errorResponse(c, new ApiError(404, 'not_found', 'Invoice not found.'))
+    }
+    return c.json(invoice)
+  })
+
+  router.post('/invoices/:id/payments', guard('staff'), async (c) => {
+    const user = c.get('adminUser')
+    const result = await financeService.addPayment(c.req.param('id'), await c.req.json(), {
+      adminUserId: user.id
+    })
+    return c.json(result, 201)
+  })
+
+  router.post('/invoices/:id/refunds', guard('manager'), async (c) => {
+    const user = c.get('adminUser')
+    const result = await financeService.refundInvoice(c.req.param('id'), await c.req.json(), {
+      adminUserId: user.id
+    })
+    return c.json(result, 201)
+  })
+
+  router.post('/invoices/:id/void', guard('manager'), async (c) => {
+    const user = c.get('adminUser')
+    const { reason } = await c.req.json<{ reason: string }>()
+    const result = await financeService.voidInvoice(c.req.param('id'), reason, {
+      adminUserId: user.id
+    })
+    return c.json(result)
+  })
+
+  router.get('/reports/revenue', guard('manager'), async (c) => {
+    const result = await financeRepository.getRevenueReport()
+    return c.json(result)
+  })
+
+  router.get('/exports/invoices.csv', guard('manager'), async () => {
+    const rows = await financeRepository.listInvoices()
+    return new Response(invoicesToCsv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="invoices.csv"'
+      }
+    })
+  })
+
+  router.get('/exports/payments.csv', guard('manager'), async () => {
+    const rows = await financeRepository.listPayments()
+    return new Response(paymentsToCsv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="payments.csv"'
+      }
+    })
+  })
+
+  router.get('/exports/refunds.csv', guard('manager'), async () => {
+    const rows = await financeRepository.listRefunds()
+    return new Response(refundsToCsv(rows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="refunds.csv"'
+      }
+    })
+  })
+
+  router.get('/exports/payroll.csv', guard('manager'), async () => {
+    const report = await financeRepository.getRevenueReport()
+    return new Response(payrollToCsv(report.payrollRows), {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': 'attachment; filename="payroll.csv"'
+      }
+    })
   })
 
   return router

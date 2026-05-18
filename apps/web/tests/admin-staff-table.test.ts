@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { filterStaffRows, getStaffServiceLabel, paginateStaffRows } from '../utils/admin-staff-table'
+import {
+  filterStaffRows,
+  formatCommissionRate,
+  getStaffServiceLabel,
+  paginateStaffRows
+} from '../utils/admin-staff-table'
 
 const staff = [
   {
@@ -7,21 +12,24 @@ const staff = [
     name: 'Maya Chen',
     title: 'Lead Artist',
     bio: 'Detailed gel extensions and calm care.',
-    active: true
+    active: true,
+    commissionRateBps: 4500
   },
   {
     id: 'nora',
     name: 'Nora Lee',
     title: 'Pedicure Specialist',
     bio: 'Spa pedicure treatments.',
-    active: false
+    active: false,
+    commissionRateBps: 4200
   },
   {
     id: 'ivy',
     name: 'Ivy Tran',
     title: 'Nail Artist',
     bio: 'Minimal nail art.',
-    active: true
+    active: true,
+    commissionRateBps: 4000
   }
 ]
 
@@ -69,5 +77,10 @@ describe('admin staff table helpers', () => {
       startItem: 3,
       endItem: 3
     })
+  })
+
+  it('keeps and formats staff commission rates for finance views', () => {
+    expect(staff[0].commissionRateBps).toBe(4500)
+    expect(formatCommissionRate(staff[0].commissionRateBps)).toBe('45.00%')
   })
 })

@@ -6,6 +6,7 @@ const form = {
   title: 'Lead Artist',
   bio: 'Calm detailed gel work.',
   active: true,
+  commissionRateBps: 4500,
   serviceIds: ['gel', 'art']
 }
 
@@ -19,7 +20,8 @@ describe('buildStaffSavePayload', () => {
       name: 'Maya Chen',
       title: 'Lead Artist',
       bio: 'Calm detailed gel work.',
-      active: true
+      active: true,
+      commissionRateBps: 4500
     })
   })
 })

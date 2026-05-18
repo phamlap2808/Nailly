@@ -39,16 +39,25 @@
             <td>{{ b.startTime }}</td>
             <td><span :class="getBookingStatusDisplay(b.status).className">{{ getBookingStatusDisplay(b.status).label }}</span></td>
             <td>
-              <select
-                v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
-                class="status-action form-control"
-                @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
-              >
-                <option value="">Update...</option>
-                <option value="confirmed">Confirm</option>
-                <option value="completed">Complete</option>
-                <option value="cancelled">Cancel</option>
-              </select>
+              <div class="booking-actions">
+                <select
+                  v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
+                  class="status-action form-control"
+                  @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Update...</option>
+                  <option value="confirmed">Confirm</option>
+                  <option value="completed">Complete</option>
+                  <option value="cancelled">Cancel</option>
+                </select>
+                <NuxtLink
+                  v-if="b.status === 'confirmed' || b.status === 'completed'"
+                  class="btn-secondary table-action"
+                  :to="`/admin/pos?bookingId=${b.id}`"
+                >
+                  Checkout
+                </NuxtLink>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -61,16 +70,25 @@
             <span>{{ b.appointmentDate }} at {{ b.startTime }}</span>
           </div>
           <span :class="getBookingStatusDisplay(b.status).className">{{ getBookingStatusDisplay(b.status).label }}</span>
-          <select
-            v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
-            class="status-action form-control"
-            @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
-          >
-            <option value="">Update...</option>
-            <option value="confirmed">Confirm</option>
-            <option value="completed">Complete</option>
-            <option value="cancelled">Cancel</option>
-          </select>
+          <div class="booking-actions">
+            <select
+              v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
+              class="status-action form-control"
+              @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
+            >
+              <option value="">Update...</option>
+              <option value="confirmed">Confirm</option>
+              <option value="completed">Complete</option>
+              <option value="cancelled">Cancel</option>
+            </select>
+            <NuxtLink
+              v-if="b.status === 'confirmed' || b.status === 'completed'"
+              class="btn-secondary table-action"
+              :to="`/admin/pos?bookingId=${b.id}`"
+            >
+              Checkout
+            </NuxtLink>
+          </div>
         </article>
       </div>
     </div>
@@ -189,6 +207,19 @@ async function handleStatusChange(id: string, status: string) {
 .status-action {
   min-height: 2.25rem;
   padding: 0.4rem 0.55rem;
+}
+
+.booking-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.table-action {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.7rem;
+  text-decoration: none;
 }
 
 .booking-cards {

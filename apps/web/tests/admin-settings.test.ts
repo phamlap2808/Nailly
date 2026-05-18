@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSettingsPreview, buildSettingsSavePayload } from '../utils/admin-settings'
+import { buildSettingsPreview, buildSettingsSavePayload, formatTaxRate } from '../utils/admin-settings'
 
 const settings = {
   name: 'Luma Nail Studio',
@@ -10,15 +10,28 @@ const settings = {
   address: '12 Rose Street',
   mapUrl: 'https://maps.example.com/luma',
   seoTitle: 'Luma Nail Studio | Appointments',
-  seoDescription: 'Book manicures, pedicures, and nail art.'
+  seoDescription: 'Book manicures, pedicures, and nail art.',
+  taxRateBps: 825,
+  invoicePrefix: 'INV',
+  receiptFooter: 'Thank you.'
 }
 
 describe('admin settings helpers', () => {
   it('normalizes optional fields for the save payload', () => {
-    expect(buildSettingsSavePayload({ ...settings, email: '', mapUrl: '   ' })).toMatchObject({
+    expect(
+      buildSettingsSavePayload({
+        ...settings,
+        email: '',
+        mapUrl: '   ',
+        invoicePrefix: '   ',
+        receiptFooter: ' Thank you. '
+      })
+    ).toMatchObject({
       name: 'Luma Nail Studio',
       email: null,
-      mapUrl: null
+      mapUrl: null,
+      invoicePrefix: 'INV',
+      receiptFooter: 'Thank you.'
     })
 
     expect(buildSettingsSavePayload(settings)).toMatchObject({
@@ -62,5 +75,10 @@ describe('admin settings helpers', () => {
       seoTitle: 'Search title',
       seoDescription: 'Search description'
     })
+  })
+
+  it('formats finance settings for tax and receipt defaults', () => {
+    expect(formatTaxRate(825)).toBe('8.25%')
+    expect(formatTaxRate(0)).toBe('0.00%')
   })
 })

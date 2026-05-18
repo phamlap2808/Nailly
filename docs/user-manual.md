@@ -19,8 +19,8 @@ Demo admin accounts:
 Quyền truy cập:
 
 - Owner có đầy đủ quyền admin.
-- Manager có thể xem dashboard, bookings, services, staff, media và settings.
-- Staff chỉ quản lý bookings.
+- Manager có thể xem dashboard, bookings, POS, invoices, reports, services, staff, media và settings.
+- Staff có thể quản lý bookings, tạo hóa đơn POS và ghi nhận thanh toán.
 
 ## 2. Public Site
 
@@ -140,6 +140,7 @@ Bạn có thể tạo và sửa thông tin staff:
 - Name
 - Title
 - Bio
+- Commission rate
 - Active flag
 - Service assignments khi tạo mới, nếu endpoint đã cung cấp data assignment.
 
@@ -203,12 +204,70 @@ Bạn có thể cập nhật:
 - Email
 - Address
 - Map URL
+- Tax rate
+- Receipt footer
+- Invoice prefix
 - SEO title
 - SEO description
 
 Sau khi save, public site sẽ đọc thông tin mới. Nếu local cache chưa cập nhật ngay, refresh trang hoặc restart Redis khi đang debug.
 
-## 11. Luồng Vận Hành Đề Xuất
+## 11. Finance Suite
+
+Owners và managers có thể dùng finance suite để checkout booking, tạo walk-in POS invoice, ghi nhận payment, in bill, refund và xem revenue reports.
+
+### Checkout Booking
+
+1. Vào `Admin > Bookings`.
+2. Chọn booking đã được xác nhận hoặc đã hoàn tất.
+3. Bấm `Checkout`.
+4. Kiểm tra services và assigned staff.
+5. Thêm discount hoặc tip nếu cần điều chỉnh bill.
+6. Ghi nhận payment method và amount.
+7. In receipt 80mm hoặc A4 invoice.
+
+### Walk-In POS
+
+1. Vào `Admin > POS`.
+2. Thêm service line hoặc manual line item.
+3. Assign staff cho từng dòng dịch vụ nếu cần tính commission.
+4. Nhập customer name/phone nếu có.
+5. Ghi nhận payment.
+6. Mở invoice detail để in receipt/A4 hoặc xử lý refund.
+
+### In Bill
+
+Vào `Admin > Invoices`, chọn một invoice:
+
+- `Print receipt` dùng cho bill 80mm.
+- `Print A4` dùng cho bản invoice đầy đủ.
+- Các nút print mở trang in riêng, trình duyệt sẽ dùng dialog in của máy.
+
+### Refund và Void
+
+- Refund chỉ dành cho invoice đã có payment.
+- Nhập refund method, amount và reason để lưu lịch sử refund.
+- Invoice chưa paid có thể void bằng reason.
+- Invoice đã paid không hiển thị void action để tránh hủy bill đã có tiền.
+
+### Reports
+
+Vào `Admin > Reports` để xem:
+
+- Gross revenue
+- Refunds
+- Net revenue
+- Tax
+- Tips
+- Invoice count
+- Revenue by invoice status
+- Payments by method
+- Service sales
+- Staff payroll commission
+
+Bạn có thể filter theo date range, staff và payment method. Dùng CSV exports để tải invoices, payments, refunds hoặc payroll về spreadsheet.
+
+## 12. Luồng Vận Hành Đề Xuất
 
 Hằng ngày:
 
@@ -229,11 +288,17 @@ Khi cập nhật thương hiệu:
 2. Cập nhật `Settings`.
 3. Kiểm tra public site trên desktop và mobile.
 
-## 12. Giới Hạn MVP
+Cuối ngày:
+
+1. Vào `Reports`.
+2. Kiểm tra gross/net revenue và payment methods.
+3. Export invoices hoặc payroll nếu cần đối soát.
+
+## 13. Giới Hạn MVP
 
 Nailly hiện là MVP, chưa bao gồm:
 
-- Online payment.
+- Online payment gateway.
 - Customer accounts.
 - Email/SMS notification.
 - Calendar drag-and-drop.

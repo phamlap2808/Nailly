@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
 import * as Minio from 'minio'
 import { loadEnv } from '../config/env'
+import { calculateInvoiceTotals } from '../services/finance-math'
 import { createDb } from './client'
 import * as schema from './schema'
 import { demoSeed } from './seed-data'
@@ -76,6 +77,15 @@ function dateFromOffset(offset: number): string {
   return date.toISOString().slice(0, 10)
 }
 
+function requiredLookup<T>(map: Map<string, T>, key: string, label: string): T {
+  const value = map.get(key)
+  if (value === undefined) {
+    throw new Error(`Missing ${label} for demo seed reference: ${key}`)
+  }
+
+  return value
+}
+
 async function seed() {
   const { client, db } = createDb()
 
@@ -89,6 +99,10 @@ async function seed() {
   await seedMediaObjects(mc, db)
 
   // Clear tables in dependency order
+  await db.delete(schema.refunds)
+  await db.delete(schema.payments)
+  await db.delete(schema.invoiceItems)
+  await db.delete(schema.invoices)
   await db.delete(schema.bookingServices)
   await db.delete(schema.bookings)
   await db.delete(schema.availabilityRules)
@@ -143,6 +157,7 @@ async function seed() {
 
   // Insert staff
   const staffIds = new Map<string, string>()
+  const staffCommissionRates = new Map<string, number>()
   for (const st of demoSeed.staff) {
     const [row] = await db
       .insert(schema.staff)
@@ -150,10 +165,12 @@ async function seed() {
         name: st.name,
         title: st.title,
         bio: st.bio,
+        commissionRateBps: st.commissionRateBps,
         active: true
       })
       .returning({ id: schema.staff.id })
     staffIds.set(st.name, row.id)
+    staffCommissionRates.set(st.name, st.commissionRateBps)
   }
   console.log(`Inserted: ${demoSeed.staff.length} staff`)
 
@@ -166,6 +183,45 @@ async function seed() {
   console.log(
     `Inserted: ${staffIds.size * serviceIds.size} staff-service mappings`
   )
+
+  // Insert demo bookings used by booking-sourced finance invoices
+  const bookingIdsByCustomerName = new Map<string, string>()
+  for (const booking of demoSeed.bookings) {
+    const staffId = requiredLookup(staffIds, booking.staffName, 'staff')
+    const bookingServiceIds = booking.serviceNames.map((serviceName) =>
+      requiredLookup(serviceIds, serviceName, 'service')
+    )
+    const durationMinutes = booking.serviceNames.reduce(
+      (sum, serviceName) => sum + requiredLookup(serviceDurations, serviceName, 'service duration'),
+      0
+    )
+    const [row] = await db
+      .insert(schema.bookings)
+      .values({
+        staffId,
+        customerName: booking.customerName,
+        phone: booking.phone,
+        email: booking.email || null,
+        partySize: booking.partySize,
+        appointmentDate: dateFromOffset(booking.relativeDayOffset),
+        startTime: booking.startTime,
+        endTime: minutesToTime(timeToMinutes(booking.startTime) + durationMinutes),
+        status: booking.status,
+        note: booking.note ?? null,
+        source: 'public_web'
+      })
+      .returning({ id: schema.bookings.id })
+
+    bookingIdsByCustomerName.set(booking.customerName, row.id)
+
+    await db.insert(schema.bookingServices).values(
+      bookingServiceIds.map((serviceId) => ({
+        bookingId: row.id,
+        serviceId
+      }))
+    )
+  }
+  console.log(`Inserted: ${demoSeed.bookings.length} bookings`)
 
   // Insert availability rules (weekdays 09:00-19:30, Saturday 09:00-18:00)
   for (const [, staffId] of staffIds) {
@@ -189,53 +245,124 @@ async function seed() {
   }
   console.log(`Inserted: ${staffIds.size * 6} availability rules`)
 
-  // Insert demo bookings to make the booking UI show realistic blocked slots
-  for (const bookingDemo of demoSeed.bookings) {
-    const staffId = staffIds.get(bookingDemo.staffName)
-    if (!staffId) {
-      throw new Error(`Unknown booking staff: ${bookingDemo.staffName}`)
-    }
+  // Insert finance invoices with items, payments, and refunds
+  for (const invoiceDemo of demoSeed.financeInvoices) {
+    await db.transaction(async (tx) => {
+      const itemInputs = invoiceDemo.items.map((item, index) => {
+        const serviceName = 'serviceName' in item && typeof item.serviceName === 'string' ? item.serviceName : undefined
+        const staffName = 'staffName' in item && typeof item.staffName === 'string' ? item.staffName : undefined
+        const manualName = 'name' in item && typeof item.name === 'string' ? item.name : undefined
+        const serviceId = serviceName ? requiredLookup(serviceIds, serviceName, 'service') : null
+        const staffId = staffName ? requiredLookup(staffIds, staffName, 'staff') : null
+        const commissionRateBps = staffName ? requiredLookup(staffCommissionRates, staffName, 'staff commission rate') : 0
+        const name = serviceName ?? manualName
+        if (!name) {
+          throw new Error(`Missing item name for demo invoice: ${invoiceDemo.invoiceNumber}`)
+        }
+        const lineTotalCents = item.quantity * item.unitPriceCents
 
-    const bookingServiceIds = bookingDemo.serviceNames.map((serviceName) => {
-      const serviceId = serviceIds.get(serviceName)
-      if (!serviceId) {
-        throw new Error(`Unknown booking service: ${serviceName}`)
-      }
-      return serviceId
-    })
-
-    const durationMinutes = bookingDemo.serviceNames.reduce((sum, serviceName) => {
-      const duration = serviceDurations.get(serviceName)
-      if (!duration) {
-        throw new Error(`Unknown booking service duration: ${serviceName}`)
-      }
-      return sum + duration
-    }, 0)
-
-    const [booking] = await db
-      .insert(schema.bookings)
-      .values({
-        staffId,
-        customerName: bookingDemo.customerName,
-        phone: bookingDemo.phone,
-        email: bookingDemo.email,
-        partySize: bookingDemo.partySize,
-        appointmentDate: dateFromOffset(bookingDemo.relativeDayOffset),
-        startTime: bookingDemo.startTime,
-        endTime: minutesToTime(timeToMinutes(bookingDemo.startTime) + durationMinutes),
-        status: bookingDemo.status,
-        note: bookingDemo.note
+        return {
+          item,
+          name,
+          serviceId,
+          staffId,
+          commissionRateBps,
+          lineTotalCents,
+          sortOrder: index + 1
+        }
       })
-      .returning({ id: schema.bookings.id })
 
-    await db.insert(schema.bookingServices).values(
-      bookingServiceIds.map((serviceId) => ({
-        bookingId: booking.id,
-        serviceId
-      }))
-    )
+      const totals = calculateInvoiceTotals({
+        items: itemInputs.map((input) => ({
+          quantity: input.item.quantity,
+          unitPriceCents: input.item.unitPriceCents,
+          commissionRateBps: input.commissionRateBps
+        })),
+        discountCents: invoiceDemo.discountCents,
+        taxRateBps: demoSeed.shop.taxRateBps,
+        tipCents: invoiceDemo.tipCents,
+        paidCents: invoiceDemo.payments.reduce((sum, payment) => sum + payment.amountCents, 0),
+        refundedCents: invoiceDemo.refunds.reduce((sum, refund) => sum + refund.amountCents, 0)
+      })
+
+      const [invoice] = await tx
+        .insert(schema.invoices)
+        .values({
+          invoiceNumber: invoiceDemo.invoiceNumber,
+          source: invoiceDemo.source,
+          bookingId: invoiceDemo.bookingCustomerName
+            ? requiredLookup(bookingIdsByCustomerName, invoiceDemo.bookingCustomerName, 'booking')
+            : null,
+          customerName: invoiceDemo.customerName,
+          customerPhone: invoiceDemo.customerPhone || null,
+          customerEmail: invoiceDemo.customerEmail || null,
+          status: invoiceDemo.status,
+          subtotalCents: totals.subtotalCents,
+          discountCents: totals.discountCents,
+          discountReason: invoiceDemo.discountReason ?? null,
+          taxRateBps: demoSeed.shop.taxRateBps,
+          taxCents: totals.taxCents,
+          tipCents: totals.tipCents,
+          totalCents: totals.totalCents,
+          paidCents: totals.paidCents,
+          refundedCents: totals.refundedCents,
+          issuedAt: new Date(),
+          paidAt: invoiceDemo.status === 'paid' || invoiceDemo.status === 'partially_refunded' ? new Date() : null
+        })
+        .returning({ id: schema.invoices.id })
+
+      await tx.insert(schema.invoiceItems).values(
+        itemInputs.map((input, index) => ({
+          invoiceId: invoice.id,
+          itemType: input.item.itemType,
+          serviceId: input.serviceId,
+          staffId: input.staffId,
+          name: input.name,
+          description: null,
+          quantity: input.item.quantity,
+          unitPriceCents: input.item.unitPriceCents,
+          lineTotalCents: input.lineTotalCents,
+          commissionRateBps: input.commissionRateBps,
+          commissionCents: totals.itemCommissions[index],
+          sortOrder: input.sortOrder
+        }))
+      )
+
+      const insertedPayments = [] as Array<{ id: string }>
+      for (const payment of invoiceDemo.payments) {
+        const [insertedPayment] = await tx
+          .insert(schema.payments)
+          .values({
+            invoiceId: invoice.id,
+            method: payment.method,
+            amountCents: payment.amountCents,
+            reference: 'reference' in payment ? payment.reference ?? null : null,
+            note: null,
+            paidAt: new Date()
+          })
+          .returning({ id: schema.payments.id })
+        insertedPayments.push(insertedPayment)
+      }
+
+      for (const refund of invoiceDemo.refunds) {
+        await tx.insert(schema.refunds).values({
+          invoiceId: invoice.id,
+          paymentId: insertedPayments[0]?.id ?? null,
+          method: refund.method,
+          amountCents: refund.amountCents,
+          reason: refund.reason,
+          refundedAt: new Date()
+        })
+      }
+    })
   }
-  console.log(`Inserted: ${demoSeed.bookings.length} demo bookings`)
+  console.log(`Inserted: ${demoSeed.financeInvoices.length} finance invoices`)
+  console.log(
+    `Inserted: ${demoSeed.financeInvoices.reduce((sum, invoice) => sum + invoice.payments.length, 0)} finance payments`
+  )
+  console.log(
+    `Inserted: ${demoSeed.financeInvoices.reduce((sum, invoice) => sum + invoice.refunds.length, 0)} finance refunds`
+  )
 
   // Insert admin users with hashed passwords
   for (const admin of demoSeed.adminUsers) {

@@ -1,4 +1,75 @@
-import type { AdminRole, BookingStatus } from '@nailly/shared'
+import type {
+  AdminRole,
+  BookingStatus,
+  FinancePaymentMethod,
+  InvoiceItemType,
+  InvoiceSource,
+  InvoiceStatus
+} from '@nailly/shared'
+
+interface FinanceInvoiceDemoServiceItem {
+  itemType: Extract<InvoiceItemType, 'service'>
+  serviceName: string
+  staffName?: string
+  quantity: number
+  unitPriceCents: number
+}
+
+interface FinanceInvoiceDemoManualItem {
+  itemType: Extract<InvoiceItemType, 'manual'>
+  name: string
+  staffName?: string
+  quantity: number
+  unitPriceCents: number
+}
+
+type FinanceInvoiceDemoItem = FinanceInvoiceDemoServiceItem | FinanceInvoiceDemoManualItem
+
+interface BookingDemo {
+  relativeDayOffset: number
+  staffName: string
+  customerName: string
+  phone: string
+  email: string
+  partySize: number
+  serviceNames: string[]
+  startTime: string
+  status: BookingStatus
+  note?: string
+}
+
+interface FinanceInvoiceDemoPayment {
+  method: FinancePaymentMethod
+  amountCents: number
+  reference?: string
+}
+
+interface FinanceInvoiceDemoRefund {
+  method: FinancePaymentMethod
+  amountCents: number
+  reason: string
+}
+
+interface FinanceInvoiceDemo {
+  invoiceNumber: string
+  source: InvoiceSource
+  bookingCustomerName?: string
+  customerName: string
+  customerPhone: string
+  customerEmail: string
+  status: InvoiceStatus
+  discountCents: number
+  discountReason?: string
+  tipCents: number
+  items: FinanceInvoiceDemoItem[]
+  payments: FinanceInvoiceDemoPayment[]
+  refunds: FinanceInvoiceDemoRefund[]
+}
+
+interface DemoSeed {
+  bookings: BookingDemo[]
+  financeInvoices: FinanceInvoiceDemo[]
+}
 
 export const demoSeed = {
   shop: {
@@ -20,6 +91,9 @@ export const demoSeed = {
       saturday: '09:00 - 18:00',
       sunday: 'Closed'
     },
+    taxRateBps: 825,
+    receiptFooter: 'Thank you for visiting Luma Nail Studio.',
+    invoicePrefix: 'INV',
     seoTitle: 'Luma Nail Studio | Nail Appointments',
     seoDescription: 'Book manicures, pedicures, gel nails, and nail art at Luma Nail Studio.'
   },
@@ -141,12 +215,12 @@ export const demoSeed = {
     { categoryName: 'Add-ons & Repair', name: 'Nail Repair', description: 'Single nail repair, patch, or extension replacement.', durationMinutes: 20, priceCents: 1200, sortOrder: 18 }
   ],
   staff: [
-    { name: 'Maya Chen', title: 'Senior Nail Artist', bio: 'Specializes in structured gel, soft neutrals, and careful natural nail prep.' },
-    { name: 'Ari Morgan', title: 'Nail Artist', bio: 'Known for clean manicures, sheer color, and playful minimal nail art.' },
-    { name: 'Nina Patel', title: 'Pedicure Specialist', bio: 'Focuses on restorative foot care, dry heel recovery, and calm service.' },
-    { name: 'Sofia Reyes', title: 'Gel Extension Artist', bio: 'Creates balanced soft gel extensions, almond shaping, and chrome finishes.' },
-    { name: 'Harper Lee', title: 'Nail Art Specialist', bio: 'Loves tiny details, French variations, aura blends, and editorial accents.' },
-    { name: 'Ivy Tran', title: 'Natural Nail Specialist', bio: 'Focuses on healthy nail care, bare nail resets, and understated polish.' }
+    { name: 'Maya Chen', title: 'Senior Nail Artist', bio: 'Specializes in structured gel, soft neutrals, and careful natural nail prep.', commissionRateBps: 4500 },
+    { name: 'Ari Morgan', title: 'Nail Artist', bio: 'Known for clean manicures, sheer color, and playful minimal nail art.', commissionRateBps: 4000 },
+    { name: 'Nina Patel', title: 'Pedicure Specialist', bio: 'Focuses on restorative foot care, dry heel recovery, and calm service.', commissionRateBps: 4200 },
+    { name: 'Sofia Reyes', title: 'Gel Extension Artist', bio: 'Creates balanced soft gel extensions, almond shaping, and chrome finishes.', commissionRateBps: 4500 },
+    { name: 'Harper Lee', title: 'Nail Art Specialist', bio: 'Loves tiny details, French variations, aura blends, and editorial accents.', commissionRateBps: 4300 },
+    { name: 'Ivy Tran', title: 'Natural Nail Specialist', bio: 'Focuses on healthy nail care, bare nail resets, and understated polish.', commissionRateBps: 4000 }
   ],
   bookings: [
     {
@@ -210,9 +284,75 @@ export const demoSeed = {
       note: 'Taking a break from gel and wants a clean natural finish.'
     }
   ],
+  financeInvoices: [
+    {
+      invoiceNumber: 'INV-DEMO-1001',
+      source: 'booking',
+      bookingCustomerName: 'Olivia Carter',
+      customerName: 'Olivia Carter',
+      customerPhone: '+1 555 0101',
+      customerEmail: 'olivia@example.com',
+      status: 'paid',
+      discountCents: 500,
+      discountReason: 'Loyalty',
+      tipCents: 1000,
+      items: [
+        { itemType: 'service', serviceName: 'Gel Manicure', staffName: 'Maya Chen', quantity: 1, unitPriceCents: 5800 },
+        { itemType: 'service', serviceName: 'Minimal Nail Art', staffName: 'Ari Morgan', quantity: 1, unitPriceCents: 2400 }
+      ],
+      payments: [{ method: 'credit_card', amountCents: 9335, reference: 'demo-card-1001' }],
+      refunds: []
+    },
+    {
+      invoiceNumber: 'INV-DEMO-1002',
+      source: 'walk_in',
+      customerName: 'Avery Stone',
+      customerPhone: '+1 555 0102',
+      customerEmail: '',
+      status: 'paid',
+      discountCents: 0,
+      tipCents: 800,
+      items: [
+        { itemType: 'service', serviceName: 'Classic Pedicure', staffName: 'Nina Patel', quantity: 1, unitPriceCents: 5200 }
+      ],
+      payments: [{ method: 'cash', amountCents: 6429 }],
+      refunds: []
+    },
+    {
+      invoiceNumber: 'INV-DEMO-1003',
+      source: 'walk_in',
+      customerName: 'Mia Thompson',
+      customerPhone: '+1 555 0103',
+      customerEmail: 'mia@example.com',
+      status: 'partially_refunded',
+      discountCents: 0,
+      tipCents: 1200,
+      items: [
+        { itemType: 'service', serviceName: 'Builder Gel Overlay', staffName: 'Maya Chen', quantity: 1, unitPriceCents: 8200 }
+      ],
+      payments: [{ method: 'venmo', amountCents: 10077 }],
+      refunds: [{ method: 'venmo', amountCents: 2000, reason: 'Partial courtesy refund' }]
+    },
+    {
+      invoiceNumber: 'INV-DEMO-1004',
+      source: 'booking',
+      bookingCustomerName: 'Grace Nguyen',
+      customerName: 'Grace Nguyen',
+      customerPhone: '+1 555 0104',
+      customerEmail: 'grace@example.com',
+      status: 'paid',
+      discountCents: 0,
+      tipCents: 0,
+      items: [
+        { itemType: 'service', serviceName: 'Spa Pedicure', staffName: 'Nina Patel', quantity: 1, unitPriceCents: 7000 }
+      ],
+      payments: [{ method: 'zelle', amountCents: 7578 }],
+      refunds: []
+    }
+  ],
   adminUsers: [
     { email: 'owner@lumanails.example', password: 'owner-password', name: 'Owner Demo', role: 'owner' as AdminRole },
     { email: 'manager@lumanails.example', password: 'manager-password', name: 'Manager Demo', role: 'manager' as AdminRole },
     { email: 'staff@lumanails.example', password: 'staff-password', name: 'Staff Demo', role: 'staff' as AdminRole }
   ]
-}
+} satisfies DemoSeed & Record<string, unknown>

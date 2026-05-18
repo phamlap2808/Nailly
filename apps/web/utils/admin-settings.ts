@@ -8,6 +8,9 @@ export interface SettingsFormLike {
   mapUrl: string | null
   seoTitle: string
   seoDescription: string
+  taxRateBps: number
+  invoicePrefix: string
+  receiptFooter: string
 }
 
 function valueOrFallback(value: string | null | undefined, fallback: string) {
@@ -22,7 +25,9 @@ export function buildSettingsSavePayload(input: SettingsFormLike) {
   return {
     ...input,
     email: optionalString(input.email),
-    mapUrl: optionalString(input.mapUrl)
+    mapUrl: optionalString(input.mapUrl),
+    invoicePrefix: input.invoicePrefix.trim() || 'INV',
+    receiptFooter: input.receiptFooter.trim()
   }
 }
 
@@ -39,4 +44,8 @@ export function buildSettingsPreview(input: SettingsFormLike) {
     seoTitle: valueOrFallback(input.seoTitle, 'Search title'),
     seoDescription: valueOrFallback(input.seoDescription, 'Search description')
   }
+}
+
+export function formatTaxRate(taxRateBps: number) {
+  return `${(taxRateBps / 100).toFixed(2)}%`
 }
