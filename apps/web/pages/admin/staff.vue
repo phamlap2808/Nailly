@@ -20,7 +20,10 @@
           <p>{{ s.bio || 'No bio added yet.' }}</p>
         </div>
         <div class="staff-card-footer">
-          <span :class="['active-dot', s.active ? 'on' : 'off']" />
+          <div class="staff-meta">
+            <span :class="['active-dot', s.active ? 'on' : 'off']" />
+            <span>{{ formatCommissionRate(s.commissionRateBps) }}</span>
+          </div>
           <button class="btn-secondary action-btn" @click="openEdit(s)">Edit</button>
         </div>
       </article>
@@ -40,6 +43,10 @@
         <label class="field">
           <span>Bio</span>
           <textarea v-model="form.bio" class="form-control" rows="3" />
+        </label>
+        <label class="field">
+          <span>Commission %</span>
+          <input v-model.number="commissionPercent" class="form-control" type="number" min="0" max="100" step="0.01" />
         </label>
         <fieldset v-if="canEditServiceAssignments" class="field service-picker">
           <legend>Services</legend>
@@ -64,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatCommissionRate } from '../../utils/admin-staff-table'
 import { buildStaffSavePayload } from '../../utils/staff-payload'
 
 definePageMeta({
@@ -86,6 +94,7 @@ interface AdminStaff {
   title: string
   bio: string
   active: boolean
+  commissionRateBps: number
   staffServices?: StaffServiceLink[]
 }
 
@@ -105,6 +114,7 @@ const form = reactive({
   title: '',
   bio: '',
   active: true,
+  commissionRateBps: 4000,
   serviceIds: [] as string[]
 })
 
@@ -122,6 +132,12 @@ async function fetchData() {
 await fetchData()
 
 const canEditServiceAssignments = computed(() => !editing.value || serviceAssignmentsLoaded.value)
+const commissionPercent = computed({
+  get: () => form.commissionRateBps / 100,
+  set: (value: number) => {
+    form.commissionRateBps = Math.round(Number(value || 0) * 100)
+  }
+})
 
 function getInitials(name: string) {
   return name
@@ -139,6 +155,7 @@ function openCreate() {
   form.title = ''
   form.bio = ''
   form.active = true
+  form.commissionRateBps = 4000
   form.serviceIds = []
   serviceAssignmentsLoaded.value = true
   serviceIdsTouched.value = false
@@ -151,6 +168,7 @@ function openEdit(staff: AdminStaff) {
   form.title = staff.title
   form.bio = staff.bio ?? ''
   form.active = staff.active
+  form.commissionRateBps = staff.commissionRateBps ?? 4000
   serviceAssignmentsLoaded.value = Array.isArray(staff.staffServices)
   serviceIdsTouched.value = false
   form.serviceIds = serviceAssignmentsLoaded.value
@@ -253,6 +271,15 @@ async function handleSave() {
   gap: 0.75rem;
   border-top: 1px solid var(--color-border);
   padding-top: 0.85rem;
+}
+
+.staff-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
 }
 
 .active-dot {

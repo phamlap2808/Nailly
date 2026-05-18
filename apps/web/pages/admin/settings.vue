@@ -70,6 +70,28 @@
         </label>
       </section>
 
+      <section class="settings-section surface-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Finance</p>
+          <h2>Taxes and receipts</h2>
+        </div>
+        <div class="field-grid">
+          <label class="field">
+            <span>Tax %</span>
+            <input v-model.number="taxPercent" class="form-control" type="number" min="0" max="100" step="0.01" />
+          </label>
+          <label class="field">
+            <span>Invoice prefix</span>
+            <input v-model="form.invoicePrefix" class="form-control" maxlength="12" />
+          </label>
+        </div>
+        <label class="field">
+          <span>Receipt footer</span>
+          <textarea v-model="form.receiptFooter" class="form-control" rows="3" />
+        </label>
+        <p class="finance-preview">Tax preview {{ formatTaxRate(form.taxRateBps) }}</p>
+      </section>
+
       <div class="settings-actions">
         <div class="save-status" aria-live="polite">{{ saveMessage }}</div>
         <button type="submit" class="btn-primary" :disabled="saving">
@@ -81,6 +103,8 @@
 </template>
 
 <script setup lang="ts">
+import { formatTaxRate } from '../../utils/admin-settings'
+
 definePageMeta({
   middleware: 'admin-auth',
   layout: false
@@ -96,6 +120,9 @@ interface ShopSettings {
   mapUrl: string | null
   seoTitle: string
   seoDescription: string
+  taxRateBps: number
+  invoicePrefix: string
+  receiptFooter: string
 }
 
 const config = useRuntimeConfig()
@@ -114,7 +141,17 @@ const form = reactive<ShopSettings>({
   address: '',
   mapUrl: '',
   seoTitle: '',
-  seoDescription: ''
+  seoDescription: '',
+  taxRateBps: 825,
+  invoicePrefix: 'INV',
+  receiptFooter: 'Thank you for visiting Luma Nail Studio.'
+})
+
+const taxPercent = computed({
+  get: () => form.taxRateBps / 100,
+  set: (value: number) => {
+    form.taxRateBps = Math.round(Number(value || 0) * 100)
+  }
 })
 
 try {
@@ -134,7 +171,9 @@ async function handleSave() {
       body: {
         ...form,
         email: form.email || null,
-        mapUrl: form.mapUrl || null
+        mapUrl: form.mapUrl || null,
+        invoicePrefix: form.invoicePrefix || 'INV',
+        receiptFooter: form.receiptFooter || ''
       }
     })
     saveMessage.value = 'Settings saved.'
@@ -194,6 +233,13 @@ async function handleSave() {
   color: var(--color-ink-soft);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.finance-preview {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+  margin: 0;
 }
 
 .settings-actions {

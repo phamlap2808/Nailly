@@ -3,6 +3,7 @@ export interface StaffSaveForm {
   title: string
   bio: string
   active: boolean
+  commissionRateBps: number
   serviceIds: string[]
 }
 
@@ -15,12 +16,14 @@ export function buildStaffSavePayload(
     title: string
     bio: string
     active: boolean
+    commissionRateBps: number
     serviceIds?: string[]
   } = {
     name: form.name,
     title: form.title,
     bio: form.bio,
-    active: form.active
+    active: form.active,
+    commissionRateBps: form.commissionRateBps
   }
 
   if (options.includeServiceIds) {
