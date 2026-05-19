@@ -1,4 +1,4 @@
-export type MediaUsageFilter = 'all' | 'gallery' | 'service' | 'staff'
+export type MediaUsageFilter = 'all' | 'gallery' | 'service' | 'staff' | 'banner'
 export type AltStatus = 'Ready' | 'Missing'
 
 interface MediaAssetLike {
@@ -31,6 +31,7 @@ export function getUsageLabel(value: string) {
   if (value === 'gallery') return 'Gallery'
   if (value === 'service') return 'Service'
   if (value === 'staff') return 'Staff'
+  if (value === 'banner') return 'Banner'
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 

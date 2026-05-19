@@ -29,6 +29,13 @@ const assets = [
     altText: 'Maya portrait',
     usageType: 'staff',
     sizeBytes: 98_304
+  },
+  {
+    id: 'banner-hero',
+    publicUrl: 'http://localhost:9100/nailly-media/demo/banner-hero.jpg',
+    altText: 'Homepage hero',
+    usageType: 'banner',
+    sizeBytes: 220_000
   }
 ]
 
@@ -54,19 +61,19 @@ describe('admin media library helpers', () => {
     expect(firstPage).toMatchObject({
       currentPage: 1,
       totalPages: 2,
-      totalItems: 3,
+      totalItems: 4,
       startItem: 1,
       endItem: 2
     })
 
     const lastPage = paginateMediaAssets(assets, 9, 2)
 
-    expect(lastPage.items.map((asset) => asset.id)).toEqual(['staff-maya'])
+    expect(lastPage.items.map((asset) => asset.id)).toEqual(['staff-maya', 'banner-hero'])
     expect(lastPage).toMatchObject({
       currentPage: 2,
       totalPages: 2,
       startItem: 3,
-      endItem: 3
+      endItem: 4
     })
   })
 
@@ -75,6 +82,7 @@ describe('admin media library helpers', () => {
     expect(getUsageLabel('gallery')).toBe('Gallery')
     expect(getUsageLabel('service')).toBe('Service')
     expect(getUsageLabel('staff')).toBe('Staff')
+    expect(getUsageLabel('banner')).toBe('Banner')
     expect(formatMediaBytes(512_000)).toBe('500 KB')
     expect(formatMediaBytes(1_572_864)).toBe('1.5 MB')
     expect(getAltStatus('Soft pink manicure')).toBe('Ready')

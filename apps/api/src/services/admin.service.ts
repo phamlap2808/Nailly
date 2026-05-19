@@ -73,6 +73,10 @@ export function createAdminService(
     listAdminUsers: repository.listAdminUsers,
     createAdminUser: repository.createAdminUser,
 
+    // Permissions
+    listRolePermissions: repository.listRolePermissions,
+    replaceRolePermissions: repository.replaceRolePermissions,
+
     // Media
     listMedia: repository.listMedia,
     createMedia: async (input: Parameters<typeof repository.createMedia>[0]) => {
@@ -82,6 +86,19 @@ export function createAdminService(
     },
     updateMedia: async (id: string, input: Record<string, unknown>) => {
       const result = await repository.updateMedia(id, input)
+      await invalidatePublicSite()
+      return result
+    },
+
+    // Banners
+    listBanners: repository.listBanners,
+    createBanner: async (input: Parameters<typeof repository.createBanner>[0]) => {
+      const result = await repository.createBanner(input)
+      await invalidatePublicSite()
+      return result
+    },
+    updateBanner: async (id: string, input: Record<string, unknown>) => {
+      const result = await repository.updateBanner(id, input)
       await invalidatePublicSite()
       return result
     }

@@ -4,7 +4,8 @@ import type {
   FinancePaymentMethod,
   InvoiceItemType,
   InvoiceSource,
-  InvoiceStatus
+  InvoiceStatus,
+  PromotionDiscountType
 } from '@nailly/shared'
 
 interface FinanceInvoiceDemoServiceItem {
@@ -35,7 +36,32 @@ interface BookingDemo {
   serviceNames: string[]
   startTime: string
   status: BookingStatus
+  promotionCode?: string
   note?: string
+}
+
+interface PromotionDemo {
+  code: string
+  name: string
+  discountType: PromotionDiscountType
+  discountValue: number
+  minSubtotalCents: number
+  maxDiscountCents?: number | null
+  usageLimit?: number | null
+  active: boolean
+}
+
+interface BannerDemo {
+  imageKey: string
+  eyebrow: string
+  title: string
+  subtitle: string
+  primaryLabel: string
+  primaryHref: string
+  secondaryLabel: string
+  secondaryHref: string
+  sortOrder: number
+  active: boolean
 }
 
 interface FinanceInvoiceDemoPayment {
@@ -69,6 +95,8 @@ interface FinanceInvoiceDemo {
 interface DemoSeed {
   bookings: BookingDemo[]
   financeInvoices: FinanceInvoiceDemo[]
+  promotions: PromotionDemo[]
+  banners: BannerDemo[]
 }
 
 export const demoSeed = {
@@ -97,7 +125,37 @@ export const demoSeed = {
     seoTitle: 'Luma Nail Studio | Nail Appointments',
     seoDescription: 'Book manicures, pedicures, gel nails, and nail art at Luma Nail Studio.'
   },
+  promotions: [
+    {
+      code: 'WELCOME10',
+      name: 'Welcome 10%',
+      discountType: 'percent',
+      discountValue: 10,
+      minSubtotalCents: 5000,
+      maxDiscountCents: 2000,
+      usageLimit: 200,
+      active: true
+    },
+    {
+      code: 'GLOSS15',
+      name: 'Gloss Fifteen',
+      discountType: 'fixed',
+      discountValue: 1500,
+      minSubtotalCents: 7000,
+      maxDiscountCents: null,
+      usageLimit: null,
+      active: true
+    }
+  ],
   media: [
+    {
+      key: 'demo/banner-editorial-manicure.jpg',
+      publicUrl: 'http://localhost:9100/nailly-media/demo/banner-editorial-manicure.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 146000,
+      altText: 'Editorial manicure hero banner',
+      usageType: 'banner'
+    },
     {
       key: 'demo/gallery-soft-pink-manicure.jpg',
       publicUrl: 'http://localhost:9100/nailly-media/demo/gallery-soft-pink-manicure.jpg',
@@ -187,6 +245,20 @@ export const demoSeed = {
       usageType: 'staff'
     }
   ],
+  banners: [
+    {
+      imageKey: 'demo/banner-editorial-manicure.jpg',
+      eyebrow: 'By appointment only',
+      title: 'Polished care, made quiet and personal.',
+      subtitle: 'Detailed manicures, restorative pedicures, and small moments of calm, by appointment.',
+      primaryLabel: 'Book appointment',
+      primaryHref: '/booking',
+      secondaryLabel: 'View services',
+      secondaryHref: '/#services',
+      sortOrder: 1,
+      active: true
+    }
+  ],
   categories: [
     { name: 'Manicures', description: 'Natural nail shaping, cuticle care, polish, and hand care.', sortOrder: 1 },
     { name: 'Gel & Enhancements', description: 'Long-wear gel, strengthening overlays, and extensions.', sortOrder: 2 },
@@ -257,6 +329,7 @@ export const demoSeed = {
       serviceNames: ['Soft Gel Extensions', 'French or Aura Add-on'],
       startTime: '11:00',
       status: 'confirmed' as BookingStatus,
+      promotionCode: 'WELCOME10',
       note: 'Birthday appointment for two guests.'
     },
     {

@@ -1,8 +1,19 @@
 import { z } from 'zod'
+import {
+  adminPermissionValues as adminPermissionSchemaValues,
+  adminRoleValues as adminRoleSchemaValues
+} from './permissions'
 
-export const adminRoleValues = ['owner', 'manager', 'staff'] as const
-export const adminRoleSchema = z.enum(adminRoleValues)
-export type AdminRole = z.infer<typeof adminRoleSchema>
+export const adminRoleSchema = z.enum(adminRoleSchemaValues)
+export const adminPermissionSchema = z.enum(adminPermissionSchemaValues)
+export {
+  adminPermissionValues,
+  adminRoleValues,
+  defaultRolePermissions,
+  hasPermission,
+  permissionsForRole
+} from './permissions'
+export type { AdminPermission, AdminRole } from './permissions'
 
 export const bookingStatusValues = [
   'pending_confirmation',
@@ -16,6 +27,18 @@ export type BookingStatus = z.infer<typeof bookingStatusSchema>
 
 export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
 export const timeSlotSchema = z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:mm')
+export const promotionCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9][A-Z0-9_-]{1,31}$/, 'Use 2-32 letters, numbers, dashes, or underscores')
+export const optionalPromotionCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => (value === '' || value === undefined ? undefined : promotionCodeSchema.parse(value)))
 
 export const serviceSchema = z.object({
   id: z.string().min(1),
@@ -50,12 +73,14 @@ export const createBookingSchema = z
     appointmentDate: isoDateSchema,
     startTime: timeSlotSchema,
     note: z.string().trim().max(1000).optional().or(z.literal('')),
+    promotionCode: optionalPromotionCodeSchema,
     status: bookingStatusSchema.default('pending_confirmation')
   })
   .transform((value) => ({
     ...value,
     email: value.email === '' ? undefined : value.email,
     note: value.note === '' ? undefined : value.note,
+    promotionCode: value.promotionCode,
     status: 'pending_confirmation' as const
   }))
 export type CreateBookingInput = z.input<typeof createBookingSchema>
@@ -104,6 +129,71 @@ export type FinancePaymentMethod = z.infer<typeof financePaymentMethodSchema>
 const moneyCentsSchema = z.number().int().min(0)
 const basisPointsSchema = z.number().int().min(0).max(10000)
 
+export const promotionDiscountTypeValues = ['percent', 'fixed'] as const
+export const promotionDiscountTypeSchema = z.enum(promotionDiscountTypeValues)
+export type PromotionDiscountType = z.infer<typeof promotionDiscountTypeSchema>
+
+export const promotionSchema = z.object({
+  code: promotionCodeSchema,
+  name: z.string().trim().min(1).max(120),
+  discountType: promotionDiscountTypeSchema,
+  discountValue: z.number().int().min(1).max(1000000),
+  minSubtotalCents: moneyCentsSchema.default(0),
+  maxDiscountCents: moneyCentsSchema.optional().nullable(),
+  startsAt: z.string().datetime().optional().nullable(),
+  endsAt: z.string().datetime().optional().nullable(),
+  usageLimit: z.number().int().min(1).optional().nullable(),
+  active: z.boolean().default(true)
+}).superRefine((value, ctx) => {
+  if (value.discountType === 'percent' && value.discountValue > 100) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['discountValue'],
+      message: 'Percent promotions cannot exceed 100'
+    })
+  }
+})
+export type PromotionInput = z.input<typeof promotionSchema>
+export type Promotion = z.output<typeof promotionSchema>
+
+export const promotionValidationSchema = z.object({
+  code: promotionCodeSchema,
+  subtotalCents: moneyCentsSchema
+})
+export type PromotionValidationInput = z.input<typeof promotionValidationSchema>
+export type PromotionValidation = z.output<typeof promotionValidationSchema>
+
+const optionalBannerText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null))
+
+export const bannerSchema = z.object({
+  imageId: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null)),
+  eyebrow: z.string().trim().max(80).optional().nullable().transform((value) => value ?? ''),
+  title: z.string().trim().min(1).max(140),
+  subtitle: z.string().trim().max(280).optional().nullable().transform((value) => value ?? ''),
+  primaryLabel: z.string().trim().min(1).max(48).default('Book appointment'),
+  primaryHref: z.string().trim().min(1).max(240).default('/booking'),
+  secondaryLabel: optionalBannerText(48),
+  secondaryHref: optionalBannerText(240),
+  sortOrder: z.number().int().min(0).max(1000).default(0),
+  active: z.boolean().default(true)
+})
+export const bannerPatchSchema = bannerSchema.partial()
+export type BannerInput = z.input<typeof bannerSchema>
+export type Banner = z.output<typeof bannerSchema>
+export type BannerPatch = z.output<typeof bannerPatchSchema>
+
 export const invoiceItemInputSchema = z.object({
   itemType: invoiceItemTypeSchema,
   serviceId: z.string().min(1).nullable().optional(),
@@ -124,6 +214,7 @@ export const invoiceCreateSchema = z.object({
   items: z.array(invoiceItemInputSchema).min(1),
   discountCents: moneyCentsSchema.default(0),
   discountReason: z.string().trim().max(240).optional().or(z.literal('')),
+  promotionCode: optionalPromotionCodeSchema,
   tipCents: moneyCentsSchema.default(0)
 })
 export type InvoiceCreateInput = z.input<typeof invoiceCreateSchema>

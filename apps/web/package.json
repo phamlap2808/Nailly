@@ -12,6 +12,7 @@
     "lint": "nuxt typecheck"
   },
   "dependencies": {
+    "@nailly/shared": "workspace:*",
     "@nuxt/devtools": "latest",
     "@nuxt/eslint": "latest",
     "@nuxt/fonts": "latest",
@@ -20,12 +21,13 @@
     "@nuxt/ui": "latest",
     "@nuxtjs/i18n": "latest",
     "@pinia/nuxt": "latest",
-    "@nailly/shared": "workspace:*",
+    "chart.js": "^4.5.1",
     "nuxt": "latest",
     "pinia": "latest",
     "vue": "latest"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.108",
     "@nuxt/test-utils": "latest",
     "@types/bun": "^1.2.0",
     "@types/node": "^22.15.0",

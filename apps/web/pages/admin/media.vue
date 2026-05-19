@@ -15,7 +15,7 @@
         <div>
           <p class="eyebrow">Upload</p>
           <h2>New asset</h2>
-          <p>Add imagery for gallery, service, or staff use.</p>
+          <p>Add imagery for banners, gallery, service, or staff use.</p>
         </div>
 
         <form class="upload-form" @submit.prevent="handleUpload">
@@ -34,6 +34,7 @@
             <span>Usage</span>
             <select v-model="usageType" class="form-control">
               <option value="gallery">Gallery</option>
+              <option value="banner">Banner</option>
               <option value="service">Service</option>
               <option value="staff">Staff</option>
             </select>
@@ -71,6 +72,7 @@
             <select v-model="usageFilter" class="form-control">
               <option value="all">All</option>
               <option value="gallery">Gallery</option>
+              <option value="banner">Banner</option>
               <option value="service">Service</option>
               <option value="staff">Staff</option>
             </select>
@@ -184,6 +186,7 @@ import {
   getUsageLabel,
   paginateMediaAssets
 } from '../../utils/admin-media-library'
+import { resolveRuntimeApiBaseUrl } from '../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -202,7 +205,8 @@ interface MediaAsset {
 }
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const fileInput = ref<HTMLInputElement>()
 const mediaList = ref<MediaAsset[]>([])
@@ -221,7 +225,10 @@ const rowSaveState = reactive<Record<string, RowSaveState>>({})
 async function fetchMedia() {
   loading.value = true
   try {
-    mediaList.value = await $fetch<MediaAsset[]>(`${baseUrl}/admin/media`, { credentials: 'include' })
+    mediaList.value = await $fetch<MediaAsset[]>(`${baseUrl}/admin/media`, {
+      credentials: 'include',
+      headers: requestHeaders
+    })
   } finally {
     loading.value = false
   }
@@ -283,6 +290,7 @@ async function handleUpload() {
     await $fetch(`${baseUrl}/admin/media`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: formData
     })
 
@@ -306,6 +314,7 @@ async function handleAltChange(id: string, event: Event) {
     await $fetch(`${baseUrl}/admin/media/${id}`, {
       method: 'PATCH',
       credentials: 'include',
+      headers: requestHeaders,
       body: { altText: value }
     })
     const item = mediaList.value.find((asset) => asset.id === id)
@@ -551,6 +560,11 @@ async function handleAltChange(id: string, event: Event) {
 
 .usage-pill--gallery {
   background: #f4ded4;
+  color: #8a4f3a;
+}
+
+.usage-pill--banner {
+  background: #f8dcd5;
   color: #8a4f3a;
 }
 

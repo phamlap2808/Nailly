@@ -23,9 +23,16 @@ function optionalString(value: string | null | undefined) {
 
 export function buildSettingsSavePayload(input: SettingsFormLike) {
   return {
-    ...input,
+    name: input.name,
+    tagline: input.tagline,
+    description: input.description,
+    phone: input.phone,
     email: optionalString(input.email),
+    address: input.address,
     mapUrl: optionalString(input.mapUrl),
+    seoTitle: input.seoTitle,
+    seoDescription: input.seoDescription,
+    taxRateBps: input.taxRateBps,
     invoicePrefix: input.invoicePrefix.trim() || 'INV',
     receiptFooter: input.receiptFooter.trim()
   }

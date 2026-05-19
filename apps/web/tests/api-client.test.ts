@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildApiUrl, resolveRuntimeApiBaseUrl } from '../utils/api-url'
+import { buildApiUrl, buildRuntimeApiRequest, resolveRuntimeApiBaseUrl } from '../utils/api-url'
 
 describe('buildApiUrl', () => {
   it('joins base URL and path without duplicate slashes', () => {
@@ -16,5 +16,28 @@ describe('buildApiUrl', () => {
 
     expect(resolveRuntimeApiBaseUrl(config, true)).toBe('http://api:8787')
     expect(resolveRuntimeApiBaseUrl(config, false)).toBe('http://localhost:8787')
+  })
+
+  it('builds server-side admin requests against the internal API and forwards cookies', () => {
+    const config = {
+      apiBaseUrl: 'http://api:8787',
+      public: {
+        apiBaseUrl: 'http://localhost:8787'
+      }
+    }
+
+    expect(
+      buildRuntimeApiRequest(config, true, '/admin/shop-settings', {
+        cookie: 'nailly_admin=token'
+      })
+    ).toEqual({
+      url: 'http://api:8787/admin/shop-settings',
+      options: {
+        credentials: 'include',
+        headers: {
+          cookie: 'nailly_admin=token'
+        }
+      }
+    })
   })
 })

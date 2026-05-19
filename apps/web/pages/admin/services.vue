@@ -244,6 +244,7 @@ import {
   getSelectedCategoryNode,
   getServicesForCategorySelection
 } from '../../utils/admin-service-hierarchy'
+import { resolveRuntimeApiBaseUrl } from '../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -268,7 +269,8 @@ interface AdminService {
 }
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const categories = ref<ServiceCategory[]>([])
 const services = ref<AdminService[]>([])
@@ -328,8 +330,14 @@ watch(catalogPage, (nextPage) => {
 async function fetchData() {
   loading.value = true
   const [cats, svcs] = await Promise.all([
-    $fetch<ServiceCategory[]>(`${baseUrl}/admin/service-categories`, { credentials: 'include' }),
-    $fetch<AdminService[]>(`${baseUrl}/admin/services`, { credentials: 'include' })
+    $fetch<ServiceCategory[]>(`${baseUrl}/admin/service-categories`, {
+      credentials: 'include',
+      headers: requestHeaders
+    }),
+    $fetch<AdminService[]>(`${baseUrl}/admin/services`, {
+      credentials: 'include',
+      headers: requestHeaders
+    })
   ])
   categories.value = cats
   services.value = svcs
@@ -391,12 +399,14 @@ async function handleSaveCategory() {
     await $fetch(`${baseUrl}/admin/service-categories/${editingCategory.value.id}`, {
       method: 'PATCH',
       credentials: 'include',
+      headers: requestHeaders,
       body: categoryForm
     })
   } else {
     const created = await $fetch<ServiceCategory>(`${baseUrl}/admin/service-categories`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: payload
     })
     selectedCategoryId.value = created.id
@@ -411,12 +421,14 @@ async function handleSave() {
     await $fetch(`${baseUrl}/admin/services/${editing.value.id}`, {
       method: 'PATCH',
       credentials: 'include',
+      headers: requestHeaders,
       body: payload
     })
   } else {
     await $fetch(`${baseUrl}/admin/services`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: payload
     })
   }

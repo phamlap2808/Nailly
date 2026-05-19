@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { createDb } from '../db/client'
-import { mediaAssets, serviceCategories, services, shopSettings, staff } from '../db/schema'
+import { banners, mediaAssets, serviceCategories, services, shopSettings, staff } from '../db/schema'
 
 export interface PublicSitePayload {
   shop: {
@@ -37,6 +37,18 @@ export interface PublicSitePayload {
     url: string
     altText: string
   }>
+  banners: Array<{
+    id: string
+    eyebrow: string
+    title: string
+    subtitle: string
+    primaryLabel: string
+    primaryHref: string
+    secondaryLabel: string | null
+    secondaryHref: string | null
+    imageUrl: string | null
+    imageAltText: string | null
+  }>
 }
 
 export function createPublicSiteRepository(databaseUrl?: string) {
@@ -67,6 +79,24 @@ export function createPublicSiteRepository(databaseUrl?: string) {
         .select()
         .from(mediaAssets)
         .where(eq(mediaAssets.usageType, 'gallery'))
+
+      const bannerRows = await db
+        .select({
+          id: banners.id,
+          eyebrow: banners.eyebrow,
+          title: banners.title,
+          subtitle: banners.subtitle,
+          primaryLabel: banners.primaryLabel,
+          primaryHref: banners.primaryHref,
+          secondaryLabel: banners.secondaryLabel,
+          secondaryHref: banners.secondaryHref,
+          imageUrl: mediaAssets.publicUrl,
+          imageAltText: mediaAssets.altText
+        })
+        .from(banners)
+        .leftJoin(mediaAssets, eq(banners.imageId, mediaAssets.id))
+        .where(eq(banners.active, true))
+        .orderBy(banners.sortOrder, banners.createdAt)
 
       const categoryMap = new Map(activeCategories.map((c) => [c.id, c.name]))
 
@@ -104,6 +134,18 @@ export function createPublicSiteRepository(databaseUrl?: string) {
           id: m.id,
           url: m.publicUrl,
           altText: m.altText
+        })),
+        banners: bannerRows.map((banner) => ({
+          id: banner.id,
+          eyebrow: banner.eyebrow,
+          title: banner.title,
+          subtitle: banner.subtitle,
+          primaryLabel: banner.primaryLabel,
+          primaryHref: banner.primaryHref,
+          secondaryLabel: banner.secondaryLabel,
+          secondaryHref: banner.secondaryHref,
+          imageUrl: banner.imageUrl,
+          imageAltText: banner.imageAltText
         }))
       }
     }

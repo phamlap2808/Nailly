@@ -11,18 +11,20 @@ describe('buildBookingPayload', () => {
         note: '',
         partySize: 1,
         serviceIds: ['svc-1'],
-        staffId: null,
-        appointmentDate: '2026-06-03',
-        startTime: '10:00'
-      })
-    ).toEqual({
+      staffId: null,
+      appointmentDate: '2026-06-03',
+      startTime: '10:00',
+      promotionCode: 'WELCOME10'
+    })
+  ).toEqual({
       customerName: 'Avery Stone',
       phone: '+1 555 0100',
       partySize: 1,
       serviceIds: ['svc-1'],
-      staffId: null,
-      appointmentDate: '2026-06-03',
-      startTime: '10:00'
-    })
+    staffId: null,
+    appointmentDate: '2026-06-03',
+    startTime: '10:00',
+    promotionCode: 'WELCOME10'
   })
+})
 })

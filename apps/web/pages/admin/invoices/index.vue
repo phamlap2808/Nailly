@@ -90,9 +90,10 @@
 </template>
 
 <script setup lang="ts">
-import { getInvoiceStatusLabel } from '../../utils/finance-format'
-import { formatPrice } from '../../utils/format'
-import { filterInvoices, paginateInvoices } from '../../utils/invoice-table'
+import { getInvoiceStatusLabel } from '../../../utils/finance-format'
+import { formatPrice } from '../../../utils/format'
+import { filterInvoices, paginateInvoices } from '../../../utils/invoice-table'
+import { resolveRuntimeApiBaseUrl } from '../../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -111,7 +112,8 @@ interface AdminInvoice {
 }
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const invoices = ref<AdminInvoice[]>([])
 const loading = ref(true)
@@ -140,7 +142,10 @@ function formatDate(value: string | null) {
 }
 
 try {
-  invoices.value = await $fetch<AdminInvoice[]>(`${baseUrl}/admin/invoices`, { credentials: 'include' })
+  invoices.value = await $fetch<AdminInvoice[]>(`${baseUrl}/admin/invoices`, {
+    credentials: 'include',
+    headers: requestHeaders
+  })
 } finally {
   loading.value = false
 }

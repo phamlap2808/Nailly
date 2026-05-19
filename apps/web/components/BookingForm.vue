@@ -1,5 +1,5 @@
 <template>
-  <div class="booking-layout">
+  <div class="booking-layout client-booking-form">
     <form class="booking-form surface-panel" @submit.prevent="handleSubmit">
       <div v-if="success" class="form-success">{{ $t('booking.success') }}</div>
       <div v-if="error" class="form-error">{{ error }}</div>
@@ -26,7 +26,7 @@
             </label>
             <span class="service-result-count">{{ serviceResultLabel }}</span>
           </div>
-          <div v-if="visibleServices.length" class="service-options">
+          <div v-if="visibleServices.length" class="service-options booking-treatment-picker">
             <label
               v-for="svc in visibleServices"
               :key="svc.id"
@@ -131,8 +131,51 @@
         <div><dt>Date</dt><dd>{{ summary.dateLabel }}</dd></div>
         <div><dt>Time</dt><dd>{{ summary.timeLabel }}</dd></div>
         <div><dt>Party</dt><dd>{{ summary.partyLabel }}</dd></div>
-        <div><dt>Total</dt><dd>{{ formatPrice(summary.totalPriceCents) }}</dd></div>
+        <div><dt>Subtotal</dt><dd>{{ formatPrice(summary.totalPriceCents) }}</dd></div>
+        <div v-if="promotionDiscountCents" class="summary-discount">
+          <dt>Discount</dt>
+          <dd>-{{ formatPrice(promotionDiscountCents) }}</dd>
+        </div>
+        <div v-if="promotionDiscountCents">
+          <dt>Estimated total</dt>
+          <dd>{{ formatPrice(estimatedTotalCents) }}</dd>
+        </div>
       </dl>
+      <div class="promotion-box" aria-label="Promotion code">
+        <label class="field promotion-field">
+          <span>Promotion code</span>
+          <div class="promotion-input-row">
+            <input
+              v-model="form.promotionCode"
+              class="form-control"
+              type="text"
+              placeholder="WELCOME10"
+              autocomplete="off"
+              @input="resetAppliedPromotion"
+              @keydown.enter.prevent="applyPromotionCode"
+            />
+            <button
+              class="btn-secondary"
+              type="button"
+              :disabled="promotionApplying || !form.promotionCode.trim()"
+              @click="applyPromotionCode"
+            >
+              {{ promotionApplying ? 'Checking...' : 'Apply code' }}
+            </button>
+          </div>
+        </label>
+        <p v-if="promotionMessage" :class="['promotion-message', `promotion-message--${promotionStatus}`]">
+          {{ promotionMessage }}
+        </p>
+        <button
+          v-if="appliedPromotionCode"
+          class="promotion-clear"
+          type="button"
+          @click="clearPromotionCode"
+        >
+          Remove code
+        </button>
+      </div>
       <div v-if="shop" class="shop-summary">
         <strong>{{ shop.name }}</strong>
         <span v-if="shop.address">{{ shop.address }}</span>
@@ -167,10 +210,11 @@ const form = reactive({
   email: '',
   partySize: 1,
   serviceIds: [] as string[],
-  staffId: null as string | null,
-  appointmentDate: '',
-  startTime: null as string | null,
-  note: ''
+    staffId: null as string | null,
+    appointmentDate: '',
+    startTime: null as string | null,
+    promotionCode: '',
+    note: ''
 })
 
 const serviceSearchQuery = ref('')
@@ -201,11 +245,101 @@ const summary = computed(() =>
 const submitting = ref(false)
 const success = ref(false)
 const error = ref('')
+const promotionApplying = ref(false)
+const promotionDiscountCents = ref(0)
+const appliedPromotionCode = ref('')
+const promotionMessage = ref('')
+const promotionStatus = ref<'success' | 'error' | 'idle'>('idle')
+
+type PromotionValidationResult =
+  | {
+      valid: true
+      code: string
+      name: string
+      discountCents: number
+      discountReason: string
+    }
+  | {
+      valid: false
+      code: string
+      message: string
+      discountCents: 0
+    }
+
+const estimatedTotalCents = computed(() => Math.max(0, summary.value.totalPriceCents - promotionDiscountCents.value))
 
 function toggleService(id: string) {
   const idx = form.serviceIds.indexOf(id)
   if (idx === -1) form.serviceIds.push(id)
   else form.serviceIds.splice(idx, 1)
+}
+
+function normalizePromotionCode(code: string) {
+  return code.trim().toUpperCase()
+}
+
+function resetAppliedPromotion() {
+  if (!appliedPromotionCode.value && !promotionDiscountCents.value) return
+  appliedPromotionCode.value = ''
+  promotionDiscountCents.value = 0
+  promotionMessage.value = 'Apply the code again to refresh the discount.'
+  promotionStatus.value = 'idle'
+}
+
+function clearPromotionCode() {
+  form.promotionCode = ''
+  appliedPromotionCode.value = ''
+  promotionDiscountCents.value = 0
+  promotionMessage.value = ''
+  promotionStatus.value = 'idle'
+}
+
+async function applyPromotionCode() {
+  const code = normalizePromotionCode(form.promotionCode)
+  form.promotionCode = code
+  appliedPromotionCode.value = ''
+  promotionDiscountCents.value = 0
+  promotionMessage.value = ''
+
+  if (!code) {
+    promotionStatus.value = 'idle'
+    return false
+  }
+
+  if (!summary.value.totalPriceCents) {
+    promotionStatus.value = 'error'
+    promotionMessage.value = 'Choose a treatment before applying a promotion.'
+    return false
+  }
+
+  promotionApplying.value = true
+  try {
+    const result = await $fetch<PromotionValidationResult>(`${baseUrl}/public/promotions/validate`, {
+      method: 'POST',
+      body: {
+        code,
+        subtotalCents: summary.value.totalPriceCents
+      }
+    })
+
+    if (!result.valid) {
+      promotionStatus.value = 'error'
+      promotionMessage.value = result.message
+      return false
+    }
+
+    appliedPromotionCode.value = result.code
+    promotionDiscountCents.value = result.discountCents
+    promotionStatus.value = 'success'
+    promotionMessage.value = `${result.name} applied: ${formatPrice(result.discountCents)} off.`
+    return true
+  } catch {
+    promotionStatus.value = 'error'
+    promotionMessage.value = 'Could not validate this promotion code.'
+    return false
+  } finally {
+    promotionApplying.value = false
+  }
 }
 
 const availableSlots = ref<AvailabilitySlot[]>([])
@@ -239,6 +373,13 @@ watch(
   }
 )
 
+watch(
+  () => [form.serviceIds.join(','), summary.value.totalPriceCents] as const,
+  () => {
+    resetAppliedPromotion()
+  }
+)
+
 async function handleSubmit() {
   error.value = ''
   if (!form.serviceIds.length || !form.startTime) {
@@ -246,12 +387,18 @@ async function handleSubmit() {
     return
   }
 
+  if (form.promotionCode.trim() && !appliedPromotionCode.value) {
+    const applied = await applyPromotionCode()
+    if (!applied) return
+  }
+
   submitting.value = true
   try {
     const payload = buildBookingPayload({
       ...form,
       startTime: form.startTime,
-      staffId: form.staffId
+      staffId: form.staffId,
+      promotionCode: appliedPromotionCode.value || undefined
     } as CreateBookingInput)
 
     await $fetch(`${baseUrl}/public/bookings`, {
@@ -271,19 +418,23 @@ async function handleSubmit() {
 <style scoped>
 .booking-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1rem;
   align-items: start;
 }
 
 .booking-form,
 .booking-summary {
-  padding: 1.25rem;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  padding: 1.35rem;
 }
 
 .booking-summary {
   position: sticky;
   top: 6rem;
+  border-left-color: #c99a8b;
 }
 
 .booking-summary h2 {
@@ -330,9 +481,64 @@ async function handleSubmit() {
   color: var(--color-ink);
 }
 
+.summary-discount dd {
+  color: var(--color-success);
+}
+
+.promotion-box {
+  display: grid;
+  gap: 0.55rem;
+  border-top: 1px solid rgba(223, 208, 195, 0.72);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.promotion-field {
+  gap: 0.45rem;
+}
+
+.promotion-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.promotion-input-row .btn-secondary {
+  min-width: 7.5rem;
+  border-radius: 0;
+}
+
+.promotion-message {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.promotion-message--success {
+  color: var(--color-success);
+}
+
+.promotion-message--error {
+  color: var(--color-danger);
+}
+
+.promotion-message--idle {
+  color: var(--color-muted);
+}
+
+.promotion-clear {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0;
+}
+
 .form-success,
 .form-error {
-  border-radius: var(--radius-card);
+  border-radius: 0;
   padding: 1rem;
   font-size: 0.95rem;
 }
@@ -370,11 +576,11 @@ async function handleSubmit() {
 .section-heading > span {
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  background: var(--color-bg-strong);
+  border: 1px solid #e6c4ba;
+  background: #f8dcd5;
   color: var(--color-primary);
   font-weight: 800;
 }
@@ -405,7 +611,7 @@ async function handleSubmit() {
 }
 
 .service-options {
-  max-height: 22rem;
+  max-height: 21rem;
   overflow: auto;
   display: grid;
   gap: 0.45rem;
@@ -418,7 +624,6 @@ async function handleSubmit() {
   gap: 0.7rem;
   align-items: center;
   border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
   background: var(--color-surface-strong);
   padding: 0.65rem 0.75rem;
   cursor: pointer;
@@ -426,7 +631,8 @@ async function handleSubmit() {
 
 .service-option.selected {
   border-color: var(--color-primary);
-  box-shadow: inset 3px 0 0 var(--color-primary), 0 0 0 3px rgba(125, 78, 63, 0.1);
+  background: #fffaf7;
+  box-shadow: inset 4px 0 0 var(--color-primary);
 }
 
 .service-option input {
@@ -479,7 +685,7 @@ async function handleSubmit() {
 
 .service-empty-state {
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-card);
+  border-radius: 0;
   margin: 0;
   padding: 1rem;
   color: var(--color-muted);
@@ -503,8 +709,21 @@ async function handleSubmit() {
   font-weight: 700;
 }
 
+.form-control {
+  border-radius: 0;
+  background: #fff;
+}
+
 .submit-btn {
   justify-self: start;
+  min-height: 3rem;
+  border-radius: 0;
+  padding-right: 1.25rem;
+  padding-left: 1.25rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 @media (max-width: 860px) {
@@ -534,6 +753,14 @@ async function handleSubmit() {
 
   .service-options {
     max-height: 20rem;
+  }
+
+  .promotion-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .promotion-input-row .btn-secondary {
+    width: 100%;
   }
 
   .service-option {

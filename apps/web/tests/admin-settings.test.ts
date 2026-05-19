@@ -40,6 +40,19 @@ describe('admin settings helpers', () => {
     })
   })
 
+  it('does not send server-owned metadata fields when saving settings', () => {
+    const payload = buildSettingsSavePayload({
+      ...settings,
+      id: 'shop-id',
+      createdAt: '2026-05-19T00:00:00.000Z',
+      updatedAt: '2026-05-19T00:00:00.000Z'
+    } as typeof settings & { id: string; createdAt: string; updatedAt: string })
+
+    expect(payload).not.toHaveProperty('id')
+    expect(payload).not.toHaveProperty('createdAt')
+    expect(payload).not.toHaveProperty('updatedAt')
+  })
+
   it('builds readable preview copy with fallbacks', () => {
     expect(buildSettingsPreview(settings)).toEqual({
       profileTitle: 'Luma Nail Studio',

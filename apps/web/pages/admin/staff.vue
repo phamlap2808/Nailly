@@ -147,6 +147,7 @@ import {
   paginateStaffRows
 } from '../../utils/admin-staff-table'
 import { buildStaffSavePayload } from '../../utils/staff-payload'
+import { resolveRuntimeApiBaseUrl } from '../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -173,7 +174,8 @@ interface AdminStaff {
 }
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const staffList = ref<AdminStaff[]>([])
 const allServices = ref<AdminService[]>([])
@@ -199,8 +201,8 @@ const form = reactive({
 async function fetchData() {
   loading.value = true
   const [staff, services] = await Promise.all([
-    $fetch<AdminStaff[]>(`${baseUrl}/admin/staff`, { credentials: 'include' }),
-    $fetch<AdminService[]>(`${baseUrl}/admin/services`, { credentials: 'include' })
+    $fetch<AdminStaff[]>(`${baseUrl}/admin/staff`, { credentials: 'include', headers: requestHeaders }),
+    $fetch<AdminService[]>(`${baseUrl}/admin/services`, { credentials: 'include', headers: requestHeaders })
   ])
   staffList.value = staff
   allServices.value = services
@@ -291,12 +293,14 @@ async function handleSave() {
     await $fetch(`${baseUrl}/admin/staff/${editing.value.id}`, {
       method: 'PATCH',
       credentials: 'include',
+      headers: requestHeaders,
       body: payload
     })
   } else {
     await $fetch(`${baseUrl}/admin/staff`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: payload
     })
   }

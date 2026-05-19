@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { demoSeed } from './seed-data'
-import { invoices, invoiceItems, payments, refunds, staff, shopSettings } from './schema'
+import {
+  banners,
+  bookings,
+  invoices,
+  invoiceItems,
+  payments,
+  promotions,
+  refunds,
+  rolePermissions,
+  staff,
+  shopSettings
+} from './schema'
 
 describe('demo seed data', () => {
   it('defines finance persistence columns for invoices, payments, refunds, settings, and staff commission', () => {
@@ -8,6 +19,15 @@ describe('demo seed data', () => {
     expect(invoiceItems).toBeDefined()
     expect(payments).toBeDefined()
     expect(refunds).toBeDefined()
+    expect(promotions).toBeDefined()
+    expect(promotions.code).toBeDefined()
+    expect(promotions.discountType).toBeDefined()
+    expect(banners).toBeDefined()
+    expect(banners.title).toBeDefined()
+    expect(banners.imageId).toBeDefined()
+    expect(rolePermissions.permission).toBeDefined()
+    expect(rolePermissions.enabled).toBeDefined()
+    expect(bookings.promotionCode).toBeDefined()
     expect(shopSettings.taxRateBps).toBeDefined()
     expect(shopSettings.invoicePrefix).toBeDefined()
     expect(shopSettings.receiptFooter).toBeDefined()
@@ -26,6 +46,10 @@ describe('demo seed data', () => {
     expect(demoSeed.staff.length).toBeGreaterThanOrEqual(5)
     expect(demoSeed.media.length).toBeGreaterThanOrEqual(8)
     expect(demoSeed.adminUsers.map((user) => user.role).sort()).toEqual(['manager', 'owner', 'staff'])
+    expect(demoSeed.promotions.length).toBeGreaterThanOrEqual(2)
+    expect(demoSeed.promotions.map((promo) => promo.code)).toContain('WELCOME10')
+    expect(demoSeed.banners.length).toBeGreaterThanOrEqual(1)
+    expect(demoSeed.banners[0].imageKey).toContain('banner')
   })
 
   it('includes realistic confirmed bookings for booking UI slot checks', () => {

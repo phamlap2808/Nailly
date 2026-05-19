@@ -26,21 +26,24 @@
 </template>
 
 <script setup lang="ts">
+import { resolveRuntimeApiBaseUrl } from '../../utils/api-url'
+
 definePageMeta({
   middleware: 'admin-auth',
   layout: false
 })
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const stats = reactive<{ bookings?: number; services?: number; staff?: number }>({})
 
 try {
   const [bookings, services, staff] = await Promise.all([
-    $fetch<unknown[]>(`${baseUrl}/admin/bookings`, { credentials: 'include' }).catch(() => []),
-    $fetch<unknown[]>(`${baseUrl}/admin/services`, { credentials: 'include' }).catch(() => []),
-    $fetch<unknown[]>(`${baseUrl}/admin/staff`, { credentials: 'include' }).catch(() => [])
+    $fetch<unknown[]>(`${baseUrl}/admin/bookings`, { credentials: 'include', headers: requestHeaders }).catch(() => []),
+    $fetch<unknown[]>(`${baseUrl}/admin/services`, { credentials: 'include', headers: requestHeaders }).catch(() => []),
+    $fetch<unknown[]>(`${baseUrl}/admin/staff`, { credentials: 'include', headers: requestHeaders }).catch(() => [])
   ])
   stats.bookings = bookings.length
   stats.services = services.length

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
 import * as Minio from 'minio'
+import { adminRoleValues, defaultRolePermissions } from '@nailly/shared'
 import { loadEnv } from '../config/env'
 import { calculateInvoiceTotals } from '../services/finance-math'
 import { createDb } from './client'
@@ -105,12 +106,15 @@ async function seed() {
   await db.delete(schema.invoices)
   await db.delete(schema.bookingServices)
   await db.delete(schema.bookings)
+  await db.delete(schema.promotions)
   await db.delete(schema.availabilityRules)
   await db.delete(schema.staffServices)
   await db.delete(schema.staff)
   await db.delete(schema.services)
   await db.delete(schema.serviceCategories)
+  await db.delete(schema.rolePermissions)
   await db.delete(schema.adminUsers)
+  await db.delete(schema.banners)
   await db.delete(schema.mediaAssets)
   await db.delete(schema.shopSettings)
 
@@ -118,9 +122,33 @@ async function seed() {
   await db.insert(schema.shopSettings).values(demoSeed.shop)
   console.log('Inserted: 1 shop')
 
+  await db.insert(schema.promotions).values(demoSeed.promotions)
+  console.log(`Inserted: ${demoSeed.promotions.length} promotions`)
+
   // Insert media (re-insert after delete)
   await seedMediaObjects(mc, db)
   console.log(`Inserted: ${demoSeed.media.length} media assets`)
+
+  const mediaRows = await db
+    .select({ id: schema.mediaAssets.id, objectKey: schema.mediaAssets.objectKey })
+    .from(schema.mediaAssets)
+  const mediaIds = new Map(mediaRows.map((row) => [row.objectKey, row.id]))
+  for (const banner of demoSeed.banners) {
+    const imageId = requiredLookup(mediaIds, banner.imageKey, 'banner media')
+    await db.insert(schema.banners).values({
+      imageId,
+      eyebrow: banner.eyebrow,
+      title: banner.title,
+      subtitle: banner.subtitle,
+      primaryLabel: banner.primaryLabel,
+      primaryHref: banner.primaryHref,
+      secondaryLabel: banner.secondaryLabel,
+      secondaryHref: banner.secondaryHref,
+      sortOrder: banner.sortOrder,
+      active: banner.active
+    })
+  }
+  console.log(`Inserted: ${demoSeed.banners.length} banners`)
 
   // Insert categories
   const categoryIds = new Map<string, string>()
@@ -207,6 +235,7 @@ async function seed() {
         startTime: booking.startTime,
         endTime: minutesToTime(timeToMinutes(booking.startTime) + durationMinutes),
         status: booking.status,
+        promotionCode: booking.promotionCode ?? null,
         note: booking.note ?? null,
         source: 'public_web'
       })
@@ -376,6 +405,17 @@ async function seed() {
     })
   }
   console.log(`Inserted: ${demoSeed.adminUsers.length} admin users`)
+
+  await db.insert(schema.rolePermissions).values(
+    adminRoleValues.flatMap((role) =>
+      defaultRolePermissions[role].map((permission) => ({
+        role,
+        permission,
+        enabled: true
+      }))
+    )
+  )
+  console.log('Inserted: default role permissions')
 
   await client.end()
   console.log('Seed complete.')

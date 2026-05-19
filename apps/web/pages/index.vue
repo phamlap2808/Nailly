@@ -1,115 +1,164 @@
 <template>
-  <div>
-    <PublicNav />
+  <div class="client-home">
+    <PublicNav :shop-name="site?.shop?.name" />
 
-    <section class="hero">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow">{{ site?.shop?.name ?? 'Luma Nail Studio' }}</p>
-          <h1 class="display-title">Warm, detailed nail care for everyday polish.</h1>
-          <p class="hero-tagline">
-            {{ site?.shop?.tagline ?? 'A calm studio for thoughtful manicures, restorative pedicures, and quiet moments of care.' }}
-          </p>
-          <div class="hero-actions">
-            <NuxtLink to="/booking" class="btn-primary">{{ $t('nav.book') }}</NuxtLink>
-            <NuxtLink to="/#services" class="btn-secondary">Explore services</NuxtLink>
-          </div>
+    <main>
+      <section class="campaign-hero">
+        <img
+          v-if="heroImage"
+          :src="heroImage.url"
+          :alt="heroImage.altText ?? 'Polished manicure detail'"
+          class="hero-background"
+          width="1680"
+          height="980"
+          fetchpriority="high"
+        />
+        <div v-else class="hero-background hero-background--fallback" aria-hidden="true">
+          <span>LN</span>
         </div>
+        <div class="hero-overlay" aria-hidden="true" />
 
-        <div class="hero-visual" :class="{ 'hero-visual--fallback': !heroImage }">
-          <NuxtImg
-            v-if="heroImage"
-            :src="heroImage.url"
-            :alt="heroImage.altText ?? 'Salon manicure detail'"
-            class="hero-img"
-            width="720"
-            height="920"
-            sizes="sm:100vw md:44vw lg:520px"
-            fetchpriority="high"
-          />
-          <div v-else class="hero-fallback" aria-hidden="true">
-            <span>LN</span>
-          </div>
-          <div class="hero-note">
-            <span>By appointment</span>
-            <strong>{{ site?.shop?.phone ?? 'Book online' }}</strong>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="site?.services?.length" id="services" class="editorial-section services-section">
-      <div class="container">
-        <div class="section-intro">
-          <p class="eyebrow">Services</p>
-          <h2 class="display-title">Choose the pace and finish that fits your day.</h2>
+        <div class="container campaign-copy">
+          <p class="eyebrow">{{ heroEyebrow }}</p>
+          <h1 class="display-title">{{ heroTitle }}</h1>
           <p>
-            From clean everyday color to artful details, each service is timed for unhurried prep, precise shaping, and a polished close.
+            {{ heroSubtitle }}
           </p>
+          <div class="campaign-actions">
+            <NuxtLink :to="heroPrimaryHref" class="client-btn client-btn--light">{{ heroPrimaryLabel }}</NuxtLink>
+            <NuxtLink v-if="heroSecondaryLabel && heroSecondaryHref" :to="heroSecondaryHref" class="client-btn client-btn--ghost">
+              {{ heroSecondaryLabel }}
+            </NuxtLink>
+          </div>
         </div>
-        <div class="services-list">
-          <ServiceCard v-for="svc in site.services" :key="svc.id" :service="svc" />
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="proof-band">
-      <div class="container proof-content">
-        <div class="proof-intro">
-          <p class="eyebrow">Why clients return</p>
-          <h2 class="display-title">Care standards you can feel.</h2>
+      <section class="client-editorial intro-section">
+        <div class="container intro-grid">
+          <div class="intro-copy">
+            <p class="eyebrow">Bring in the experts</p>
+            <h2 class="display-title">Thoughtful nail care with a precise studio rhythm.</h2>
+          </div>
+          <div class="intro-body">
+            <p>
+              Choose a clean everyday finish, a longer-wear gel set, or detailed nail art with enough time for shape,
+              prep, polish, and a calm close.
+            </p>
+            <NuxtLink to="/booking" class="client-btn client-btn--dark">Book now</NuxtLink>
+          </div>
         </div>
-        <div class="proof-grid">
-          <article v-for="reason in whyReasons" :key="reason.title" class="proof-card">
-            <p>{{ reason.kicker }}</p>
+      </section>
+
+      <section class="client-tile-section">
+        <div class="container client-tile-grid">
+          <NuxtLink to="/#services" class="client-tile tile-services">
+            <img
+              v-if="tileImages.services"
+              :src="tileImages.services.url"
+              :alt="tileImages.services.altText ?? 'Nail services'"
+              width="760"
+              height="760"
+              loading="lazy"
+            />
+            <span class="tile-label">Our services</span>
+            <strong>Explore the treatment menu</strong>
+          </NuxtLink>
+
+          <NuxtLink to="/#gallery" class="client-tile tile-gallery">
+            <img
+              v-if="tileImages.gallery"
+              :src="tileImages.gallery.url"
+              :alt="tileImages.gallery.altText ?? 'Nail gallery'"
+              width="760"
+              height="760"
+              loading="lazy"
+            />
+            <span class="tile-label">Lookbook</span>
+            <strong>See recent sets</strong>
+          </NuxtLink>
+
+          <NuxtLink to="/booking" class="client-tile tile-booking">
+            <img
+              v-if="tileImages.booking"
+              :src="tileImages.booking.url"
+              :alt="tileImages.booking.altText ?? 'Book a nail appointment'"
+              width="760"
+              height="760"
+              loading="lazy"
+            />
+            <span class="tile-label">Appointments</span>
+            <strong>Find a time</strong>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section v-if="site?.services?.length" id="services" class="client-editorial services-section">
+        <div class="container services-grid">
+          <div class="section-intro">
+            <p class="eyebrow">Services</p>
+            <h2 class="display-title">Choose the pace and finish that fits your day.</h2>
+            <p>
+              Every appointment is paced for careful prep, a clean finish, and enough time to talk through shape,
+              color, and detail.
+            </p>
+          </div>
+          <div class="services-list">
+            <ServiceCard v-for="svc in site.services" :key="svc.id" :service="svc" />
+          </div>
+        </div>
+      </section>
+
+      <section class="standards-band">
+        <div class="container standards-grid">
+          <article v-for="reason in whyReasons" :key="reason.title" class="standard-item">
+            <span>{{ reason.kicker }}</span>
             <h3>{{ reason.title }}</h3>
-            <span>{{ reason.text }}</span>
+            <p>{{ reason.text }}</p>
           </article>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section v-if="site?.gallery?.length" id="gallery" class="editorial-section">
-      <div class="container">
-        <div class="section-intro">
-          <p class="eyebrow">Gallery</p>
-          <h2 class="display-title">Recent sets, soft color, and tiny details.</h2>
-          <p>Browse a few studio favorites before choosing the shape, shade, or detail work for your next visit.</p>
-        </div>
-        <GalleryGrid :images="site.gallery" />
-      </div>
-    </section>
-
-    <section v-if="site?.staff?.length || site?.shop" class="editorial-section visit-section">
-      <div class="container visit-grid">
-        <div v-if="site?.staff?.length" class="staff-panel">
+      <section v-if="site?.gallery?.length" id="gallery" class="client-editorial gallery-section">
+        <div class="container">
           <div class="section-intro">
+            <p class="eyebrow">Gallery</p>
+            <h2 class="display-title">Recent sets, soft color, and tiny details.</h2>
+            <p>Browse studio favorites before choosing the shape, shade, or detail work for your next visit.</p>
+          </div>
+          <GalleryGrid :images="site.gallery" />
+        </div>
+      </section>
+
+      <section v-if="site?.staff?.length || site?.shop" class="client-editorial visit-section">
+        <div class="container visit-grid">
+          <div v-if="site?.staff?.length" class="staff-panel">
             <p class="eyebrow">Artists</p>
             <h2 class="display-title">A small team with a careful hand.</h2>
+            <div class="staff-list">
+              <article v-for="person in site.staff" :key="person.id" class="staff-card">
+                <h3>{{ person.name }}</h3>
+                <p>{{ person.title }}</p>
+              </article>
+            </div>
           </div>
-          <div class="staff-grid">
-            <article v-for="person in site.staff" :key="person.id" class="staff-card">
-              <h3>{{ person.name }}</h3>
-              <p>{{ person.title }}</p>
-            </article>
-          </div>
-        </div>
 
-        <div v-if="site?.shop" class="visit-panel">
-          <p class="eyebrow">Visit</p>
-          <h2 class="display-title">Settle in at the studio.</h2>
-          <address>
-            <span>{{ site.shop.address }}</span>
-            <a :href="`tel:${site.shop.phone}`">{{ site.shop.phone }}</a>
-          </address>
-          <NuxtLink to="/booking" class="btn-primary">{{ $t('nav.book') }}</NuxtLink>
+          <div v-if="site?.shop" class="visit-panel">
+            <p class="eyebrow">Visit</p>
+            <h2 class="display-title">Settle in at the studio.</h2>
+            <address>
+              <span>{{ site.shop.address }}</span>
+              <a :href="`tel:${site.shop.phone}`">{{ site.shop.phone }}</a>
+            </address>
+            <NuxtLink to="/booking" class="client-btn client-btn--dark">Book appointment</NuxtLink>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
 
     <footer class="footer">
       <div class="container footer-content">
         <span>{{ site?.shop?.name ?? 'Luma Nail Studio' }}</span>
+        <NuxtLink to="/booking">Book online</NuxtLink>
       </div>
     </footer>
   </div>
@@ -122,6 +171,18 @@ interface SitePayload {
   shop: { name: string; tagline: string; address: string; phone: string; seoDescription: string } | null
   services: Array<{ id: string; name: string; description: string; durationMinutes: number; priceCents: number }> | null
   gallery: Array<{ url: string; altText: string | null }> | null
+  banners: Array<{
+    id: string
+    eyebrow: string
+    title: string
+    subtitle: string
+    primaryLabel: string
+    primaryHref: string
+    secondaryLabel: string | null
+    secondaryHref: string | null
+    imageUrl: string | null
+    imageAltText: string | null
+  }> | null
   staff: Array<{ id: string; name: string; title: string }> | null
 }
 
@@ -129,26 +190,86 @@ const whyReasons = [
   {
     kicker: 'Clean tools',
     title: 'Sanitized stations for every appointment',
-    text: 'Fresh implements, tidy surfaces, and a calm reset between guests keep the experience comfortable.'
+    text: 'Fresh implements, tidy surfaces, and a calm reset between guests.'
   },
   {
     kicker: 'Better wear',
     title: 'Products chosen for healthy-looking nails',
-    text: 'We pair durable color systems with thoughtful prep so manicures feel refined long after you leave.'
+    text: 'Durable color systems paired with thoughtful prep for a refined finish.'
   },
   {
     kicker: 'Personal pace',
     title: 'Enough time for shape, care, and detail',
-    text: 'Appointments are paced to avoid rushed decisions, whether you want a simple gloss or delicate art.'
+    text: 'Appointments are paced to avoid rushed decisions and uneven results.'
   }
 ]
 
 const config = useRuntimeConfig()
 const { data: site } = await useFetch<SitePayload>('/public/site', {
+  key: 'public-site',
   baseURL: resolveRuntimeApiBaseUrl(config, import.meta.server)
 })
 
-const heroImage = computed(() => site.value?.gallery?.[0] ?? null)
+const fallbackClientImages = {
+  hero: {
+    url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1800&q=80',
+    altText: 'Editorial manicure detail'
+  },
+  services: {
+    url: 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?auto=format&fit=crop&w=1200&q=80',
+    altText: 'Finished nail art'
+  },
+  gallery: {
+    url: 'https://images.unsplash.com/photo-1599948128020-9a44505b0d1b?auto=format&fit=crop&w=1200&q=80',
+    altText: 'Colorful nail polish palette'
+  },
+  booking: {
+    url: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=1200&q=80',
+    altText: 'Manicure appointment in progress'
+  }
+}
+
+function resolveClientImage(
+  image: { url: string; altText: string | null } | null | undefined,
+  fallback: { url: string; altText: string }
+) {
+  if (!image || image.url.includes('/nailly-media/demo/')) return fallback
+
+  return image
+}
+
+const heroBanner = computed(() => site.value?.banners?.[0] ?? null)
+const heroBannerImage = computed(() => {
+  const banner = heroBanner.value
+  if (!banner?.imageUrl) return site.value?.gallery?.[0]
+
+  return {
+    url: banner.imageUrl,
+    altText: banner.imageAltText
+  }
+})
+const heroImage = computed(() => resolveClientImage(heroBannerImage.value, fallbackClientImages.hero))
+const heroEyebrow = computed(() => heroBanner.value?.eyebrow || site.value?.shop?.name || 'Luma Nail Studio')
+const heroTitle = computed(() => heroBanner.value?.title || 'Polished care, made quiet and personal.')
+const heroSubtitle = computed(
+  () =>
+    heroBanner.value?.subtitle ||
+    site.value?.shop?.tagline ||
+    'Detailed manicures, restorative pedicures, and small moments of calm, by appointment.'
+)
+const heroPrimaryLabel = computed(() => heroBanner.value?.primaryLabel || 'Book appointment')
+const heroPrimaryHref = computed(() => heroBanner.value?.primaryHref || '/booking')
+const heroSecondaryLabel = computed(() => heroBanner.value?.secondaryLabel || 'View services')
+const heroSecondaryHref = computed(() => heroBanner.value?.secondaryHref || '/#services')
+const tileImages = computed(() => {
+  const gallery = site.value?.gallery ?? []
+
+  return {
+    services: resolveClientImage(gallery[1], fallbackClientImages.services),
+    gallery: resolveClientImage(gallery[2], fallbackClientImages.gallery),
+    booking: resolveClientImage(gallery[3], fallbackClientImages.booking)
+  }
+})
 
 useSeoMeta({
   title: site.value?.shop?.name ?? 'Nail Studio',
@@ -157,72 +278,21 @@ useSeoMeta({
 </script>
 
 <style scoped>
-.hero {
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at 72% 12%, rgba(184, 118, 92, 0.18), transparent 42%),
-    linear-gradient(180deg, var(--color-bg-strong) 0%, var(--color-bg) 100%);
-  padding: 4.8rem 0 5.4rem;
-}
-
-.hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(18rem, 0.78fr);
-  align-items: center;
-  gap: clamp(2rem, 5vw, 5.5rem);
-}
-
-.hero-copy {
-  min-width: 0;
-}
-
-.hero-copy .eyebrow,
-.section-intro .eyebrow,
-.visit-panel .eyebrow {
-  margin: 0 0 0.85rem;
-}
-
-.hero-copy h1 {
-  max-width: 45rem;
-  margin: 0;
+.client-home {
+  background: #fffaf7;
   color: var(--color-ink);
-  font-size: clamp(3.4rem, 7.4vw, 7rem);
 }
 
-.hero-tagline {
-  max-width: 38rem;
-  margin: 1.35rem 0 0;
-  color: var(--color-ink-soft);
-  font-size: 1.08rem;
-  line-height: 1.75;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 2rem;
-}
-
-.hero-visual {
+.campaign-hero {
   position: relative;
+  display: grid;
+  align-items: end;
+  min-height: 42rem;
   overflow: hidden;
-  min-height: clamp(28rem, 52vw, 39rem);
-  border: 1px solid rgba(223, 208, 195, 0.78);
-  border-radius: var(--radius-media);
-  background: linear-gradient(140deg, #eadbd0 0%, #c8957f 100%);
-  box-shadow: var(--shadow-soft);
+  background: #2b211d;
 }
 
-.hero-visual::after {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(rgba(43, 33, 29, 0.08), rgba(43, 33, 29, 0.18));
-  content: "";
-  pointer-events: none;
-}
-
-.hero-img {
+.hero-background {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -230,285 +300,417 @@ useSeoMeta({
   object-fit: cover;
 }
 
-.hero-fallback {
-  position: absolute;
-  inset: 0;
+.hero-background--fallback {
   display: grid;
   place-items: center;
-  background:
-    linear-gradient(135deg, rgba(255, 250, 244, 0.64), rgba(125, 78, 63, 0.2)),
-    linear-gradient(140deg, #eadbd0 0%, #c8957f 100%);
+  background: #c89686;
 }
 
-.hero-fallback span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.hero-background--fallback span {
+  display: grid;
+  place-items: center;
   width: 8rem;
   height: 8rem;
-  border: 1px solid rgba(255, 250, 244, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 50%;
-  color: rgba(43, 33, 29, 0.68);
+  color: #fff;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 2rem;
   font-weight: 700;
 }
 
-.hero-note {
+.hero-overlay {
   position: absolute;
-  right: 1rem;
-  bottom: 1rem;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(20, 14, 11, 0.72), rgba(20, 14, 11, 0.34) 48%, rgba(20, 14, 11, 0.18)),
+    linear-gradient(180deg, rgba(20, 14, 11, 0.08), rgba(20, 14, 11, 0.62));
+}
+
+.campaign-copy {
+  position: relative;
   z-index: 1;
-  display: grid;
-  gap: 0.15rem;
-  max-width: min(18rem, calc(100% - 2rem));
-  border: 1px solid rgba(255, 250, 244, 0.78);
-  border-radius: var(--radius-card);
-  background: rgba(255, 250, 244, 0.88);
-  padding: 0.85rem 1rem;
-  color: var(--color-ink);
-  box-shadow: var(--shadow-soft);
+  padding-top: 8rem;
+  padding-bottom: 6rem;
+  color: #fff;
 }
 
-.hero-note span {
-  color: var(--color-muted);
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-transform: uppercase;
+.campaign-copy .eyebrow {
+  margin: 0 0 1rem;
+  color: #f9d9d3;
 }
 
-.hero-note strong {
-  font-size: 0.98rem;
-}
-
-.editorial-section {
-  padding: clamp(4.5rem, 8vw, 7rem) 0;
-}
-
-.services-section {
-  background: var(--color-bg);
-}
-
-.section-intro {
-  max-width: 44rem;
-  margin-bottom: 2.2rem;
-}
-
-.section-intro h2,
-.visit-panel h2 {
+.campaign-copy h1 {
+  max-width: 48rem;
   margin: 0;
-  color: var(--color-ink);
-  font-size: clamp(2.1rem, 4.4vw, 4.1rem);
+  font-size: 5.4rem;
+  line-height: 0.98;
 }
 
-.section-intro p:not(.eyebrow) {
-  margin: 1rem 0 0;
-  color: var(--color-muted);
-  font-size: 1rem;
+.campaign-copy p:not(.eyebrow) {
+  max-width: 38rem;
+  margin: 1.35rem 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 1.08rem;
   line-height: 1.7;
 }
 
-.services-list {
-  border-top: 0;
+.campaign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
 }
 
-.proof-band {
-  background: var(--color-primary);
+.client-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  border: 1px solid currentColor;
+  padding: 0.8rem 1.25rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.client-btn--light {
+  background: #fff;
+  color: var(--color-ink);
+}
+
+.client-btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  padding: 2.8rem 0;
 }
 
-.proof-content {
+.client-btn--dark {
+  background: var(--color-ink);
+  color: #fff;
+}
+
+.client-editorial {
+  padding: 5rem 0;
+}
+
+.intro-section {
+  background: #fffaf7;
+}
+
+.intro-grid,
+.services-grid,
+.visit-grid {
   display: grid;
-  grid-template-columns: minmax(14rem, 0.58fr) minmax(0, 1fr);
-  gap: clamp(1.5rem, 4vw, 3rem);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 3rem;
   align-items: start;
 }
 
-.proof-intro .eyebrow {
-  margin: 0 0 0.75rem;
-  color: rgba(255, 255, 255, 0.74);
-}
-
-.proof-intro h2 {
+.intro-copy h2,
+.section-intro h2,
+.staff-panel h2,
+.visit-panel h2 {
   margin: 0;
-  color: #fff;
-  font-size: clamp(1.9rem, 3.6vw, 3.3rem);
+  font-size: 3.3rem;
+  line-height: 1;
 }
 
-.proof-grid {
+.intro-copy .eyebrow,
+.section-intro .eyebrow,
+.staff-panel .eyebrow,
+.visit-panel .eyebrow {
+  margin: 0 0 0.95rem;
+}
+
+.intro-body {
+  display: grid;
+  gap: 1.35rem;
+  justify-items: start;
+}
+
+.intro-body p,
+.section-intro p:not(.eyebrow) {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 1rem;
+  line-height: 1.78;
+}
+
+.client-tile-section {
+  padding: 0 0 5rem;
+  background: #fffaf7;
+}
+
+.client-tile-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.proof-card {
-  min-width: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
-  padding: 0.2rem 0 0.2rem 1.2rem;
+.client-tile {
+  position: relative;
+  display: grid;
+  align-content: end;
+  min-height: 29rem;
+  overflow: hidden;
+  background: #eac6bf;
+  color: #fff;
+  padding: 1.4rem;
+  text-decoration: none;
 }
 
-.proof-card p {
-  margin: 0 0 0.55rem;
-  color: rgba(255, 255, 255, 0.74);
+.client-tile::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(18, 12, 10, 0.06), rgba(18, 12, 10, 0.68));
+  content: "";
+}
+
+.client-tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s ease;
+}
+
+.client-tile:hover img {
+  transform: scale(1.035);
+}
+
+.tile-label,
+.client-tile strong {
+  position: relative;
+  z-index: 1;
+}
+
+.tile-label {
+  color: #f9d9d3;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 900;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
-.proof-card h3 {
-  margin: 0;
-  color: #fff;
+.client-tile strong {
+  display: block;
+  max-width: 17rem;
+  margin-top: 0.45rem;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.35rem;
-  line-height: 1.18;
+  font-size: 2rem;
+  line-height: 1.05;
 }
 
-.proof-card span {
-  display: block;
-  margin-top: 0.75rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.92rem;
-  line-height: 1.58;
+.services-section,
+.gallery-section {
+  border-top: 1px solid #eadbd2;
+  background: #fff;
+}
+
+.section-intro {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.services-list {
+  border-top: 1px solid #dfd0c3;
+}
+
+.standards-band {
+  background: var(--color-ink);
+  color: #fff;
+  padding: 2.5rem 0;
+}
+
+.standards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.standard-item {
+  border-left: 1px solid rgba(255, 255, 255, 0.26);
+  padding-left: 1.2rem;
+}
+
+.standard-item span {
+  color: #f9d9d3;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.standard-item h3 {
+  margin: 0.7rem 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.standard-item p {
+  margin: 0.8rem 0 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.95rem;
+  line-height: 1.65;
 }
 
 .visit-section {
-  background: var(--color-bg-strong);
-}
-
-.visit-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
-  gap: 1.5rem;
-  align-items: start;
+  border-top: 1px solid #eadbd2;
+  background: #f8dcd5;
 }
 
 .staff-panel,
 .visit-panel {
+  display: grid;
+  gap: 1.35rem;
   min-width: 0;
-  border: 1px solid rgba(223, 208, 195, 0.78);
-  border-radius: var(--radius-card);
-  background: rgba(255, 250, 244, 0.72);
-  padding: clamp(1.3rem, 3vw, 2rem);
-  box-shadow: var(--shadow-soft);
 }
 
-.staff-grid {
+.staff-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  border-top: 1px solid rgba(43, 33, 29, 0.22);
 }
 
 .staff-card {
-  border-top: 1px solid var(--color-border);
-  padding-top: 1rem;
+  border-bottom: 1px solid rgba(43, 33, 29, 0.22);
+  padding: 1rem 1rem 1rem 0;
 }
 
 .staff-card h3 {
   margin: 0;
-  color: var(--color-ink);
   font-size: 1rem;
 }
 
-.staff-card p {
-  margin: 0.3rem 0 0;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-}
-
-.visit-panel {
-  display: grid;
-  gap: 1.1rem;
-}
-
-.visit-panel h2 {
-  font-size: clamp(2rem, 4vw, 3.4rem);
+.staff-card p,
+.visit-panel address {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.65;
 }
 
 .visit-panel address {
   display: grid;
   gap: 0.45rem;
-  color: var(--color-muted);
   font-style: normal;
-  line-height: 1.6;
 }
 
 .visit-panel address a {
-  color: var(--color-primary);
-  font-weight: 800;
+  color: var(--color-ink);
+  font-weight: 900;
   text-decoration: none;
 }
 
-.visit-panel .btn-primary {
+.visit-panel .client-btn {
   width: fit-content;
 }
 
 .footer {
-  border-top: 1px solid rgba(223, 208, 195, 0.78);
-  background: var(--color-surface);
-  padding: 1.2rem 0;
+  border-top: 1px solid #eadbd2;
+  background: #fffaf7;
+  padding: 1.3rem 0;
 }
 
 .footer-content {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
   color: var(--color-muted);
   font-size: 0.9rem;
 }
 
 .footer-content a {
-  color: var(--color-ink-soft);
-  font-weight: 700;
+  color: var(--color-ink);
+  font-weight: 900;
+  letter-spacing: 0.1em;
   text-decoration: none;
+  text-transform: uppercase;
 }
 
-@media (max-width: 900px) {
-  .hero {
-    padding-top: 3.6rem;
+@media (max-width: 920px) {
+  .campaign-hero {
+    min-height: 36rem;
   }
 
-  .hero-grid,
-  .visit-grid {
+  .campaign-copy h1 {
+    max-width: 38rem;
+    font-size: 4rem;
+  }
+
+  .intro-grid,
+  .services-grid,
+  .visit-grid,
+  .standards-grid {
     grid-template-columns: 1fr;
   }
 
-  .hero-visual {
-    min-height: 26rem;
+  .client-tile-grid {
+    grid-template-columns: 1fr;
   }
 
-  .proof-content,
-  .proof-grid {
-    grid-template-columns: 1fr;
+  .client-tile {
+    min-height: 22rem;
   }
 }
 
 @media (max-width: 640px) {
-  .hero {
-    padding: 3rem 0 4rem;
+  .campaign-hero {
+    min-height: 34rem;
   }
 
-  .hero-copy h1 {
-    font-size: clamp(2.7rem, 16vw, 4.1rem);
+  .campaign-copy {
+    padding-top: 6rem;
+    padding-bottom: 3.5rem;
   }
 
-  .hero-actions,
-  .hero-actions a {
+  .campaign-copy h1 {
+    font-size: 3rem;
+  }
+
+  .campaign-copy p:not(.eyebrow) {
+    font-size: 1rem;
+  }
+
+  .campaign-actions,
+  .campaign-actions a,
+  .intro-body .client-btn {
     width: 100%;
   }
 
-  .hero-visual {
-    min-height: 22rem;
+  .client-editorial {
+    padding: 3.75rem 0;
   }
 
-  .editorial-section {
-    padding: 3.6rem 0;
+  .intro-copy h2,
+  .section-intro h2,
+  .staff-panel h2,
+  .visit-panel h2 {
+    font-size: 2.45rem;
   }
 
-  .staff-grid {
+  .client-tile-section {
+    padding-bottom: 3.75rem;
+  }
+
+  .client-tile {
+    min-height: 20rem;
+  }
+
+  .staff-list {
     grid-template-columns: 1fr;
+  }
+
+  .footer-content {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

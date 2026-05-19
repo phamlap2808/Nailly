@@ -133,6 +133,7 @@ export function createBookingRepository(databaseUrl?: string) {
             startTime: input.startTime,
             endTime: toTime(endMinutes),
             status: 'pending_confirmation',
+            promotionCode: input.promotionCode ?? null,
             note: input.note ?? null
           })
           .returning({ id: bookings.id, status: bookings.status })

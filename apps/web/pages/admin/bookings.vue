@@ -40,23 +40,46 @@
             <td><span :class="getBookingStatusDisplay(b.status).className">{{ getBookingStatusDisplay(b.status).label }}</span></td>
             <td>
               <div class="booking-actions">
-                <select
-                  v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
-                  class="status-action form-control"
-                  @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
+                <span v-if="!getBookingDropdownActions(b).length" class="booking-no-action">No action</span>
+
+                <div
+                  v-if="getBookingDropdownActions(b).length"
+                  class="booking-more-menu"
+                  :class="{ 'booking-more-menu--open': isBookingMenuOpen(b.id) }"
                 >
-                  <option value="">Update...</option>
-                  <option value="confirmed">Confirm</option>
-                  <option value="completed">Complete</option>
-                  <option value="cancelled">Cancel</option>
-                </select>
-                <NuxtLink
-                  v-if="b.status === 'confirmed' || b.status === 'completed'"
-                  class="btn-secondary table-action"
-                  :to="`/admin/pos?bookingId=${b.id}`"
-                >
-                  Checkout
-                </NuxtLink>
+                  <button
+                    class="booking-more-trigger"
+                    type="button"
+                    aria-label="More booking actions"
+                    :aria-expanded="isBookingMenuOpen(b.id)"
+                    @click="toggleBookingMenu(b.id)"
+                  >
+                    <Icon name="lucide:more-horizontal" aria-hidden="true" />
+                  </button>
+                  <div v-if="isBookingMenuOpen(b.id)" class="booking-menu-list">
+                    <NuxtLink
+                      v-for="action in getBookingDropdownActions(b).filter((item) => item.to)"
+                      :key="action.label"
+                      class="booking-menu-action booking-menu-link"
+                      :to="action.to"
+                      @click="closeBookingMenu"
+                    >
+                      <Icon v-if="action.icon" :name="action.icon" aria-hidden="true" />
+                      {{ action.label }}
+                    </NuxtLink>
+                    <button
+                      v-for="action in getBookingDropdownActions(b).filter((item) => item.status)"
+                      :key="action.label"
+                      class="booking-menu-action"
+                      :class="{ 'booking-menu-action--danger': action.tone === 'danger' }"
+                      type="button"
+                      @click="handleDropdownStatusAction(b.id, action.status)"
+                    >
+                      <Icon v-if="action.icon" :name="action.icon" aria-hidden="true" />
+                      {{ action.label }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </td>
           </tr>
@@ -71,23 +94,46 @@
           </div>
           <span :class="getBookingStatusDisplay(b.status).className">{{ getBookingStatusDisplay(b.status).label }}</span>
           <div class="booking-actions">
-            <select
-              v-if="b.status === 'pending_confirmation' || b.status === 'confirmed'"
-              class="status-action form-control"
-              @change="(e) => handleStatusChange(b.id, (e.target as HTMLSelectElement).value)"
+            <span v-if="!getBookingDropdownActions(b).length" class="booking-no-action">No action</span>
+
+            <div
+              v-if="getBookingDropdownActions(b).length"
+              class="booking-more-menu"
+              :class="{ 'booking-more-menu--open': isBookingMenuOpen(b.id) }"
             >
-              <option value="">Update...</option>
-              <option value="confirmed">Confirm</option>
-              <option value="completed">Complete</option>
-              <option value="cancelled">Cancel</option>
-            </select>
-            <NuxtLink
-              v-if="b.status === 'confirmed' || b.status === 'completed'"
-              class="btn-secondary table-action"
-              :to="`/admin/pos?bookingId=${b.id}`"
-            >
-              Checkout
-            </NuxtLink>
+              <button
+                class="booking-more-trigger"
+                type="button"
+                aria-label="More booking actions"
+                :aria-expanded="isBookingMenuOpen(b.id)"
+                @click="toggleBookingMenu(b.id)"
+              >
+                <Icon name="lucide:more-horizontal" aria-hidden="true" />
+              </button>
+              <div v-if="isBookingMenuOpen(b.id)" class="booking-menu-list">
+                <NuxtLink
+                  v-for="action in getBookingDropdownActions(b).filter((item) => item.to)"
+                  :key="action.label"
+                  class="booking-menu-action booking-menu-link"
+                  :to="action.to"
+                  @click="closeBookingMenu"
+                >
+                  <Icon v-if="action.icon" :name="action.icon" aria-hidden="true" />
+                  {{ action.label }}
+                </NuxtLink>
+                <button
+                  v-for="action in getBookingDropdownActions(b).filter((item) => item.status)"
+                  :key="action.label"
+                  class="booking-menu-action"
+                  :class="{ 'booking-menu-action--danger': action.tone === 'danger' }"
+                  type="button"
+                  @click="handleDropdownStatusAction(b.id, action.status)"
+                >
+                  <Icon v-if="action.icon" :name="action.icon" aria-hidden="true" />
+                  {{ action.label }}
+                </button>
+              </div>
+            </div>
           </div>
         </article>
       </div>
@@ -97,6 +143,7 @@
 
 <script setup lang="ts">
 import { getBookingStatusDisplay } from '../../utils/admin-status'
+import { resolveRuntimeApiBaseUrl } from '../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -109,31 +156,88 @@ interface AdminBooking {
   phone: string
   appointmentDate: string
   startTime: string
-  status: string
+  status: BookingStatus
+}
+
+type BookingStatus = 'pending_confirmation' | 'confirmed' | 'completed' | 'cancelled'
+
+interface BookingDropdownAction {
+  label: string
+  icon?: string
+  status?: BookingStatus
+  tone?: 'danger'
+  to?: string
 }
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const bookings = ref<AdminBooking[]>([])
 const loading = ref(true)
 const statusFilter = ref('')
+const openBookingMenuId = ref<string | null>(null)
 
 watchEffect(async () => {
   loading.value = true
   try {
     const params = statusFilter.value ? `?status=${statusFilter.value}` : ''
-    bookings.value = await $fetch<AdminBooking[]>(`${baseUrl}/admin/bookings${params}`, { credentials: 'include' })
+    bookings.value = await $fetch<AdminBooking[]>(`${baseUrl}/admin/bookings${params}`, {
+      credentials: 'include',
+      headers: requestHeaders
+    })
   } finally {
     loading.value = false
   }
 })
 
-async function handleStatusChange(id: string, status: string) {
+function getBookingDropdownActions(booking: AdminBooking): BookingDropdownAction[] {
+  if (booking.status === 'pending_confirmation') {
+    return [
+      { label: 'Confirm', icon: 'lucide:check', status: 'confirmed' },
+      { label: 'Cancel booking', status: 'cancelled', tone: 'danger' }
+    ]
+  }
+
+  if (booking.status === 'confirmed') {
+    return [
+      { label: 'Checkout', icon: 'lucide:credit-card', to: `/admin/pos?bookingId=${booking.id}` },
+      { label: 'Mark completed', status: 'completed' },
+      { label: 'Cancel booking', status: 'cancelled', tone: 'danger' }
+    ]
+  }
+
+  if (booking.status === 'completed') {
+    return [{ label: 'Checkout', icon: 'lucide:credit-card', to: `/admin/pos?bookingId=${booking.id}` }]
+  }
+
+  return []
+}
+
+function isBookingMenuOpen(id: string) {
+  return openBookingMenuId.value === id
+}
+
+function toggleBookingMenu(id: string) {
+  openBookingMenuId.value = isBookingMenuOpen(id) ? null : id
+}
+
+function closeBookingMenu() {
+  openBookingMenuId.value = null
+}
+
+async function handleDropdownStatusAction(id: string, status?: BookingStatus) {
+  if (!status) return
+  closeBookingMenu()
+  await handleStatusChange(id, status)
+}
+
+async function handleStatusChange(id: string, status: BookingStatus) {
   if (!status) return
   await $fetch(`${baseUrl}/admin/bookings/${id}/status`, {
     method: 'PATCH',
     credentials: 'include',
+    headers: requestHeaders,
     body: { status }
   })
   const idx = bookings.value.findIndex((b) => b.id === id)
@@ -165,7 +269,7 @@ async function handleStatusChange(id: string, status: string) {
 }
 
 .bookings-panel {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .data-table {
@@ -204,22 +308,86 @@ async function handleStatusChange(id: string, status: string) {
   display: inline-flex;
 }
 
-.status-action {
-  min-height: 2.25rem;
-  padding: 0.4rem 0.55rem;
+.data-table th:last-child,
+.data-table td:last-child {
+  text-align: right;
+}
+
+.data-table td:last-child {
+  width: 7rem;
 }
 
 .booking-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   flex-wrap: wrap;
+  position: relative;
 }
 
-.table-action {
-  min-height: 2.25rem;
-  padding: 0.45rem 0.7rem;
+.booking-no-action {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.booking-more-menu {
+  position: relative;
+}
+
+.booking-more-trigger {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-strong);
+  color: var(--color-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.booking-more-menu--open .booking-more-trigger {
+  border-color: var(--color-primary);
+  background: #f7ebe4;
+}
+
+.booking-menu-list {
+  min-width: 11rem;
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(72, 49, 39, 0.14);
+  overflow: hidden;
+}
+
+.booking-menu-action {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 800;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
   text-decoration: none;
+}
+
+.booking-menu-action:hover {
+  background: var(--color-bg-strong);
+}
+
+.booking-menu-action--danger {
+  color: #934638;
 }
 
 .booking-cards {
@@ -272,6 +440,15 @@ async function handleStatusChange(id: string, status: string) {
 
   .booking-card div > span {
     color: var(--color-muted);
+  }
+
+  .booking-actions {
+    justify-content: flex-start;
+  }
+
+  .booking-menu-list {
+    right: auto;
+    left: 0;
   }
 }
 </style>

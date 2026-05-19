@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import type { Context } from 'hono'
+import type { AdminPermission } from '@nailly/shared'
 import { loadEnv } from '../config/env'
 
 export interface AdminProfile {
@@ -7,6 +8,7 @@ export interface AdminProfile {
   email: string
   name: string
   role: string
+  permissions?: AdminPermission[]
 }
 
 export async function signAdminToken(

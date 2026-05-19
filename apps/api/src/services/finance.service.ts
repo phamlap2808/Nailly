@@ -8,6 +8,10 @@ import {
 } from '@nailly/shared'
 import { ApiError } from '../http/errors'
 import { calculateInvoiceTotals } from './finance-math'
+import {
+  validatePromotionForSubtotal,
+  type PromotionForValidation
+} from './promotion.service'
 
 export interface FinanceRepository {
   getFinanceSettings(): Promise<{ taxRateBps: number; invoicePrefix: string }>
@@ -18,6 +22,8 @@ export interface FinanceRepository {
   addPayment(invoiceId: string, input: Record<string, unknown>): Promise<unknown>
   addRefund(invoiceId: string, input: Record<string, unknown>): Promise<unknown>
   voidInvoice(invoiceId: string, input: { reason: string; adminUserId: string }): Promise<unknown>
+  getPromotionByCode(code: string): Promise<PromotionForValidation | null>
+  incrementPromotionUsage(code: string): Promise<unknown>
 }
 
 export interface FinanceActor {
@@ -72,20 +78,36 @@ export function createFinanceService(repository: FinanceRepository) {
         })
       }
 
+      const subtotalCents = mathItems.reduce((sum, item) => sum + item.quantity * item.unitPriceCents, 0)
+      let discountCents = parsed.discountCents
+      let discountReason = parsed.discountReason || undefined
+
+      if (parsed.promotionCode) {
+        const promotion = await repository.getPromotionByCode(parsed.promotionCode)
+        const validation = validatePromotionForSubtotal(promotion, subtotalCents)
+
+        if (!validation.valid) {
+          throw new ApiError(400, 'invalid_promotion', validation.message)
+        }
+
+        discountCents = validation.discountCents
+        discountReason = validation.discountReason
+      }
+
       const totals = calculateInvoiceTotals({
         items: mathItems,
-        discountCents: parsed.discountCents,
+        discountCents,
         taxRateBps: settings.taxRateBps,
         tipCents: parsed.tipCents,
         paidCents: 0,
         refundedCents: 0
       })
 
-      return repository.createInvoice({
+      const invoice = await repository.createInvoice({
         ...parsed,
         customerPhone: parsed.customerPhone || undefined,
         customerEmail: parsed.customerEmail || undefined,
-        discountReason: parsed.discountReason || undefined,
+        discountReason,
         createdBy: actor.adminUserId,
         taxRateBps: settings.taxRateBps,
         subtotalCents: totals.subtotalCents,
@@ -102,6 +124,12 @@ export function createFinanceService(repository: FinanceRepository) {
           commissionCents: totals.itemCommissions[index] ?? 0
         }))
       })
+
+      if (parsed.promotionCode) {
+        await repository.incrementPromotionUsage(parsed.promotionCode)
+      }
+
+      return invoice
     },
 
     async addPayment(invoiceId: string, input: InvoicePaymentInput, actor: FinanceActor) {

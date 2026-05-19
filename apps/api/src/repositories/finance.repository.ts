@@ -4,6 +4,7 @@ import {
   invoiceItems,
   invoices,
   payments,
+  promotions,
   refunds,
   services,
   shopSettings,
@@ -39,6 +40,19 @@ type FinanceInvoiceInput = {
   totalCents: number
   createdBy: string
   items: FinanceInvoiceItemInput[]
+}
+
+type PromotionInput = {
+  code: string
+  name: string
+  discountType: 'percent' | 'fixed'
+  discountValue: number
+  minSubtotalCents: number
+  maxDiscountCents?: number | null
+  startsAt?: string | Date | null
+  endsAt?: string | Date | null
+  usageLimit?: number | null
+  active: boolean
 }
 
 type FinancePaymentInput = {
@@ -86,6 +100,41 @@ function summarizeRevenueInvoices(invoiceRows: RevenueSummaryInvoice[]) {
     }),
     { grossCents: 0, refundedCents: 0, netCents: 0, taxCents: 0, tipCents: 0, invoiceCount: 0 }
   )
+}
+
+function nullableDate(value?: string | Date | null) {
+  if (!value) return null
+  return value instanceof Date ? value : new Date(value)
+}
+
+function promotionValues(input: PromotionInput) {
+  return {
+    code: input.code,
+    name: input.name,
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+    minSubtotalCents: input.minSubtotalCents,
+    maxDiscountCents: input.maxDiscountCents ?? null,
+    startsAt: nullableDate(input.startsAt),
+    endsAt: nullableDate(input.endsAt),
+    usageLimit: input.usageLimit ?? null,
+    active: input.active
+  }
+}
+
+function partialPromotionValues(input: Partial<PromotionInput>) {
+  const values: Record<string, unknown> = {}
+  if (input.code !== undefined) values.code = input.code
+  if (input.name !== undefined) values.name = input.name
+  if (input.discountType !== undefined) values.discountType = input.discountType
+  if (input.discountValue !== undefined) values.discountValue = input.discountValue
+  if (input.minSubtotalCents !== undefined) values.minSubtotalCents = input.minSubtotalCents
+  if (input.maxDiscountCents !== undefined) values.maxDiscountCents = input.maxDiscountCents ?? null
+  if (input.startsAt !== undefined) values.startsAt = nullableDate(input.startsAt)
+  if (input.endsAt !== undefined) values.endsAt = nullableDate(input.endsAt)
+  if (input.usageLimit !== undefined) values.usageLimit = input.usageLimit ?? null
+  if (input.active !== undefined) values.active = input.active
+  return values
 }
 
 export function createFinanceRepository(databaseUrl?: string) {
@@ -307,6 +356,42 @@ export function createFinanceRepository(databaseUrl?: string) {
         .returning()
 
       return invoice ?? null
+    },
+
+    async listPromotions() {
+      return db.select().from(promotions).orderBy(promotions.code)
+    },
+
+    async getPromotionByCode(code: string) {
+      const rows = await db.select().from(promotions).where(eq(promotions.code, code)).limit(1)
+      return rows[0] ?? null
+    },
+
+    async createPromotion(input: PromotionInput) {
+      const [row] = await db.insert(promotions).values(promotionValues(input)).returning()
+      return row
+    },
+
+    async updatePromotion(id: string, input: Partial<PromotionInput>) {
+      const [row] = await db
+        .update(promotions)
+        .set({
+          ...partialPromotionValues(input),
+          updatedAt: new Date()
+        })
+        .where(eq(promotions.id, id))
+        .returning()
+      return row ?? null
+    },
+
+    async incrementPromotionUsage(code: string) {
+      await db
+        .update(promotions)
+        .set({
+          usedCount: sql`${promotions.usedCount} + 1`,
+          updatedAt: new Date()
+        })
+        .where(eq(promotions.code, code))
     },
 
     async listInvoices() {

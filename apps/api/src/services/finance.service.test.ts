@@ -11,7 +11,9 @@ function createRepository() {
     getInvoiceWithItems: vi.fn(),
     addPayment: vi.fn(),
     addRefund: vi.fn(),
-    voidInvoice: vi.fn()
+    voidInvoice: vi.fn(),
+    getPromotionByCode: vi.fn().mockResolvedValue(null),
+    incrementPromotionUsage: vi.fn()
   }
 }
 
@@ -50,6 +52,86 @@ describe('createFinanceService', () => {
         ]
       })
     )
+  })
+
+  it('applies valid promotion codes to invoice discounts and usage', async () => {
+    const repository = createRepository()
+    repository.getPromotionByCode.mockResolvedValue({
+      code: 'WELCOME10',
+      name: 'Welcome 10%',
+      discountType: 'percent',
+      discountValue: 10,
+      minSubtotalCents: 0,
+      maxDiscountCents: null,
+      startsAt: null,
+      endsAt: null,
+      usageLimit: null,
+      usedCount: 0,
+      active: true
+    })
+    const service = createFinanceService(repository)
+
+    await service.createInvoice({
+      source: 'walk_in',
+      customerName: 'Olivia Carter',
+      items: [
+        {
+          itemType: 'service',
+          serviceId: 'svc-1',
+          name: 'Gel Manicure',
+          quantity: 1,
+          unitPriceCents: 5800
+        }
+      ],
+      promotionCode: 'welcome10',
+      tipCents: 0
+    }, { adminUserId: 'admin-1' })
+
+    expect(repository.createInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promotionCode: 'WELCOME10',
+        discountCents: 580,
+        discountReason: 'Promo WELCOME10',
+        totalCents: 5651
+      })
+    )
+    expect(repository.incrementPromotionUsage).toHaveBeenCalledWith('WELCOME10')
+  })
+
+  it('rejects expired promotion codes before creating invoices', async () => {
+    const repository = createRepository()
+    repository.getPromotionByCode.mockResolvedValue({
+      code: 'OLD10',
+      name: 'Old 10%',
+      discountType: 'percent',
+      discountValue: 10,
+      minSubtotalCents: 0,
+      maxDiscountCents: null,
+      startsAt: null,
+      endsAt: new Date('2020-01-01T00:00:00Z'),
+      usageLimit: null,
+      usedCount: 0,
+      active: true
+    })
+    const service = createFinanceService(repository)
+
+    await expect(
+      service.createInvoice({
+        source: 'walk_in',
+        customerName: 'Olivia Carter',
+        items: [
+          {
+            itemType: 'service',
+            serviceId: 'svc-1',
+            name: 'Gel Manicure',
+            quantity: 1,
+            unitPriceCents: 5800
+          }
+        ],
+        promotionCode: 'OLD10'
+      }, { adminUserId: 'admin-1' })
+    ).rejects.toMatchObject({ code: 'invalid_promotion' })
+    expect(repository.createInvoice).not.toHaveBeenCalled()
   })
 
   it('rejects refunds larger than the refundable balance', async () => {

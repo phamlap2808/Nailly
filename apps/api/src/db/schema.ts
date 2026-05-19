@@ -30,6 +30,7 @@ export const invoiceStatus = pgEnum('invoice_status', [
 ])
 export const invoiceSource = pgEnum('invoice_source', ['booking', 'walk_in'])
 export const invoiceItemType = pgEnum('invoice_item_type', ['service', 'manual'])
+export const promotionDiscountType = pgEnum('promotion_discount_type', ['percent', 'fixed'])
 export const financePaymentMethod = pgEnum('finance_payment_method', [
   'cash',
   'credit_card',
@@ -68,6 +69,22 @@ export const mediaAssets = pgTable('media_assets', {
   sizeBytes: integer('size_bytes').notNull(),
   altText: text('alt_text').notNull(),
   usageType: text('usage_type').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+})
+
+export const banners = pgTable('banners', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  imageId: uuid('image_id').references(() => mediaAssets.id),
+  eyebrow: text('eyebrow').notNull().default(''),
+  title: text('title').notNull(),
+  subtitle: text('subtitle').notNull().default(''),
+  primaryLabel: text('primary_label').notNull().default('Book appointment'),
+  primaryHref: text('primary_href').notNull().default('/booking'),
+  secondaryLabel: text('secondary_label'),
+  secondaryHref: text('secondary_href'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 })
@@ -141,6 +158,7 @@ export const bookings = pgTable(
     startTime: text('start_time').notNull(),
     endTime: text('end_time').notNull(),
     status: bookingStatus('status').notNull().default('pending_confirmation'),
+    promotionCode: text('promotion_code'),
     note: text('note'),
     source: text('source').notNull().default('public_web'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -165,6 +183,23 @@ export const bookingServices = pgTable(
     pk: primaryKey({ columns: [table.bookingId, table.serviceId] })
   })
 )
+
+export const promotions = pgTable('promotions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').notNull().unique(),
+  name: text('name').notNull(),
+  discountType: promotionDiscountType('discount_type').notNull(),
+  discountValue: integer('discount_value').notNull(),
+  minSubtotalCents: integer('min_subtotal_cents').notNull().default(0),
+  maxDiscountCents: integer('max_discount_cents'),
+  startsAt: timestamp('starts_at', { withTimezone: true }),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
+  usageLimit: integer('usage_limit'),
+  usedCount: integer('used_count').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+})
 
 export const invoices = pgTable('invoices', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -245,6 +280,20 @@ export const adminUsers = pgTable('admin_users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 })
+
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    role: adminRole('role').notNull(),
+    permission: text('permission').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.role, table.permission] })
+  })
+)
 
 export const serviceRelations = relations(services, ({ one, many }) => ({
   category: one(serviceCategories, {

@@ -40,7 +40,6 @@ defineEmits<{
 .slot-chip {
   min-height: 2.6rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
   background: var(--color-surface-strong);
   color: var(--color-ink);
   font-size: 0.9rem;
@@ -69,7 +68,6 @@ defineEmits<{
 .slot-state {
   grid-column: 1 / -1;
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-card);
   color: var(--color-muted);
   font-size: 0.9rem;
   padding: 0.9rem;

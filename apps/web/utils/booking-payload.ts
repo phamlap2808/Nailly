@@ -10,6 +10,7 @@ export function buildBookingPayload(input: CreateBookingInput): CreateBookingInp
     staffId: input.staffId ?? null,
     appointmentDate: input.appointmentDate,
     startTime: input.startTime,
+    ...(input.promotionCode ? { promotionCode: input.promotionCode } : {}),
     ...(input.note ? { note: input.note } : {})
   }
 }

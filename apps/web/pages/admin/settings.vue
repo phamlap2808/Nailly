@@ -162,6 +162,7 @@
 <script setup lang="ts">
 import type { SettingsFormLike } from '../../utils/admin-settings'
 import { buildSettingsPreview, buildSettingsSavePayload, formatTaxRate } from '../../utils/admin-settings'
+import { resolveRuntimeApiBaseUrl } from '../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -171,11 +172,13 @@ definePageMeta({
 type ShopSettings = SettingsFormLike
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 
 const loading = ref(true)
 const saving = ref(false)
 const saveMessage = ref('')
+const sidebarShopName = useState<string | null>('admin-sidebar-shop-name', () => null)
 
 const form = reactive<ShopSettings>({
   name: '',
@@ -200,8 +203,14 @@ const taxPercent = computed({
 })
 
 try {
-  const settings = await $fetch<Partial<ShopSettings> | null>(`${baseUrl}/admin/shop-settings`, { credentials: 'include' })
-  if (settings) Object.assign(form, settings)
+  const settings = await $fetch<Partial<ShopSettings> | null>(`${baseUrl}/admin/shop-settings`, {
+    credentials: 'include',
+    headers: requestHeaders
+  })
+  if (settings) {
+    Object.assign(form, settings)
+    if (settings.name) sidebarShopName.value = settings.name
+  }
 } finally {
   loading.value = false
 }
@@ -215,8 +224,10 @@ async function handleSave() {
     await $fetch(`${baseUrl}/admin/shop-settings`, {
       method: 'PATCH',
       credentials: 'include',
+      headers: requestHeaders,
       body: buildSettingsSavePayload(form)
     })
+    sidebarShopName.value = form.name
     saveMessage.value = 'Settings saved.'
   } finally {
     saving.value = false

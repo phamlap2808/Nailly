@@ -2,9 +2,11 @@ import { Hono } from 'hono'
 import { publicAvailabilityQuerySchema } from '@nailly/shared'
 import { RedisJsonCache } from '../cache/redis'
 import { createBookingRepository } from '../repositories/booking.repository'
+import { createFinanceRepository } from '../repositories/finance.repository'
 import { createPublicSiteRepository } from '../repositories/public-site.repository'
 import { buildTimeSlots } from '../services/availability.service'
 import { BookingService } from '../services/booking.service'
+import { validatePromotionCode } from '../services/promotion.service'
 import { PublicSiteService } from '../services/public-site.service'
 
 export function publicRoutes(
@@ -15,6 +17,7 @@ export function publicRoutes(
   const router = new Hono()
   const siteService = new PublicSiteService(siteRepo, cache)
   const bookingService = new BookingService(bookingRepo)
+  const financeRepository = createFinanceRepository()
 
   router.get('/site', async (c) => {
     const payload = await siteService.getPublicSite()
@@ -53,6 +56,11 @@ export function publicRoutes(
       },
       201
     )
+  })
+
+  router.post('/promotions/validate', async (c) => {
+    const result = await validatePromotionCode(financeRepository, await c.req.json())
+    return c.json(result)
   })
 
   return router

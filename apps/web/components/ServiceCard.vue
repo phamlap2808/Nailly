@@ -30,7 +30,7 @@ defineProps<{
   grid-template-columns: minmax(0, 1fr) minmax(8rem, auto);
   align-items: start;
   gap: 1rem;
-  padding: 1.2rem 0;
+  padding: 1.3rem 0;
   border-top: 1px solid rgba(223, 208, 195, 0.82);
 }
 
@@ -45,10 +45,11 @@ defineProps<{
 .service-copy h3 {
   margin: 0 0 0.35rem;
   color: var(--color-ink);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.28rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
   line-height: 1.18;
+  text-transform: uppercase;
 }
 
 .service-copy p {

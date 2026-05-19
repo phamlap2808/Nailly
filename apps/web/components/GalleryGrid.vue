@@ -24,7 +24,7 @@ defineProps<{
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-flow: dense;
-  gap: 0.8rem;
+  gap: 1rem;
 }
 
 .gallery-img {
@@ -32,9 +32,7 @@ defineProps<{
   height: 100%;
   min-height: 15rem;
   aspect-ratio: 1 / 1;
-  border-radius: var(--radius-media);
   object-fit: cover;
-  box-shadow: var(--shadow-soft);
 }
 
 .gallery-img--feature {

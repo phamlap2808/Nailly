@@ -2,13 +2,31 @@
   <AdminShell>
     <div class="admin-page-header">
       <div>
+        <NuxtLink class="back-link" to="/admin/invoices">Back to invoices</NuxtLink>
         <p class="eyebrow">Invoice</p>
         <h1 class="display-title">{{ invoice?.invoiceNumber ?? 'Invoice' }}</h1>
         <p v-if="invoice">{{ invoice.customerName }} · {{ getInvoiceStatusLabel(invoice.status) }}</p>
       </div>
-      <div v-if="invoice" class="header-actions">
-        <NuxtLink class="btn-secondary" :to="`/admin/invoices/${invoice.id}/receipt`">Print receipt</NuxtLink>
-        <NuxtLink class="btn-secondary" :to="`/admin/invoices/${invoice.id}/print`">Print A4</NuxtLink>
+      <div v-if="invoice" ref="printMenuRef" class="header-actions print-menu">
+        <button
+          class="btn-secondary icon-button"
+          type="button"
+          aria-label="Print"
+          title="Print"
+          aria-haspopup="menu"
+          :aria-expanded="printMenuOpen"
+          @click="printMenuOpen = !printMenuOpen"
+        >
+          <Icon name="lucide:printer" />
+        </button>
+        <div v-if="printMenuOpen" class="print-dropdown" role="menu">
+          <NuxtLink :to="`/admin/invoices/${invoice.id}/receipt`" role="menuitem" @click="closePrintMenu">
+            Print receipt
+          </NuxtLink>
+          <NuxtLink :to="`/admin/invoices/${invoice.id}/print`" role="menuitem" @click="closePrintMenu">
+            Print A4
+          </NuxtLink>
+        </div>
       </div>
     </div>
 
@@ -159,8 +177,9 @@
 </template>
 
 <script setup lang="ts">
-import { getInvoiceStatusLabel, getPaymentMethodLabel } from '../../../utils/finance-format'
-import { formatPrice } from '../../../utils/format'
+import { getInvoiceStatusLabel, getPaymentMethodLabel } from '../../../../utils/finance-format'
+import { formatPrice } from '../../../../utils/format'
+import { resolveRuntimeApiBaseUrl } from '../../../../utils/api-url'
 
 definePageMeta({
   middleware: 'admin-auth',
@@ -201,7 +220,8 @@ interface AdminInvoiceDetail {
 }
 
 const config = useRuntimeConfig()
-const baseUrl = config.public.apiBaseUrl
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
 const route = useRoute()
 const invoiceId = computed(() => String(route.params.id))
 
@@ -212,6 +232,8 @@ const savingRefund = ref(false)
 const savingVoid = ref(false)
 const showRefundForm = ref(false)
 const showVoidForm = ref(false)
+const printMenuOpen = ref(false)
+const printMenuRef = ref<HTMLElement | null>(null)
 const paymentForm = reactive({
   method: 'cash',
   amountCents: 0,
@@ -225,11 +247,28 @@ const refundForm = reactive({
 })
 const voidReason = ref('')
 
+function closePrintMenu() {
+  printMenuOpen.value = false
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!printMenuRef.value?.contains(event.target as Node)) {
+    closePrintMenu()
+  }
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closePrintMenu()
+  }
+}
+
 async function fetchInvoice() {
   loading.value = true
   try {
     invoice.value = await $fetch<AdminInvoiceDetail>(`${baseUrl}/admin/invoices/${invoiceId.value}`, {
-      credentials: 'include'
+      credentials: 'include',
+      headers: requestHeaders
     })
   } finally {
     loading.value = false
@@ -242,6 +281,7 @@ async function addPayment() {
     await $fetch(`${baseUrl}/admin/invoices/${invoiceId.value}/payments`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: {
         method: paymentForm.method,
         amountCents: paymentForm.amountCents,
@@ -264,6 +304,7 @@ async function addRefund() {
     await $fetch(`${baseUrl}/admin/invoices/${invoiceId.value}/refunds`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: {
         method: refundForm.method,
         amountCents: refundForm.amountCents,
@@ -285,6 +326,7 @@ async function voidInvoice() {
     await $fetch(`${baseUrl}/admin/invoices/${invoiceId.value}/void`, {
       method: 'POST',
       credentials: 'include',
+      headers: requestHeaders,
       body: { reason: voidReason.value }
     })
     voidReason.value = ''
@@ -294,6 +336,16 @@ async function voidInvoice() {
     savingVoid.value = false
   }
 }
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerDown)
+  document.addEventListener('keydown', handleDocumentKeydown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  document.removeEventListener('keydown', handleDocumentKeydown)
+})
 
 await fetchInvoice()
 </script>
@@ -317,6 +369,19 @@ await fetchInvoice()
   margin: 0.4rem 0 0;
 }
 
+.back-link {
+  color: var(--color-ink-soft);
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 0.55rem;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--color-primary);
+}
+
 .header-actions,
 .invoice-actions {
   display: flex;
@@ -324,8 +389,46 @@ await fetchInvoice()
   flex-wrap: wrap;
 }
 
-.header-actions a {
+.print-menu {
+  position: relative;
+}
+
+.icon-button {
+  aspect-ratio: 1;
+  min-height: 2.6rem;
+  padding: 0;
+  width: 2.6rem;
+}
+
+.icon-button :deep(svg) {
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.print-dropdown {
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  min-width: 10rem;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 10;
+}
+
+.print-dropdown a {
+  color: var(--color-ink-soft);
+  font-weight: 700;
+  padding: 0.7rem 0.85rem;
   text-decoration: none;
+}
+
+.print-dropdown a:hover,
+.print-dropdown a:focus-visible {
+  background: rgba(239, 226, 214, 0.72);
 }
 
 .invoice-detail-layout {
@@ -468,6 +571,10 @@ await fetchInvoice()
 
   .total-panel {
     position: static;
+  }
+
+  .header-actions {
+    justify-self: start;
   }
 }
 </style>

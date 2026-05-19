@@ -1,0 +1,35 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+const bookingsPage = readFileSync(new URL('../pages/admin/bookings.vue', import.meta.url), 'utf8')
+
+describe('admin bookings smart actions', () => {
+  it('keeps booking actions inside a compact dropdown menu', () => {
+    expect(bookingsPage).toContain('class="booking-more-menu"')
+    expect(bookingsPage).toContain('openBookingMenuId')
+    expect(bookingsPage).toContain('toggleBookingMenu')
+    expect(bookingsPage).toContain(':aria-expanded="isBookingMenuOpen(b.id)"')
+    expect(bookingsPage).toContain('@click="toggleBookingMenu(b.id)"')
+    expect(bookingsPage).toContain('v-if="isBookingMenuOpen(b.id)"')
+    expect(bookingsPage).toContain('getBookingDropdownActions')
+    expect(bookingsPage).toContain(':to="action.to"')
+    expect(bookingsPage).toContain("{ label: 'Confirm', icon: 'lucide:check', status: 'confirmed' }")
+    expect(bookingsPage).toContain('handleDropdownStatusAction')
+    expect(bookingsPage).toContain('Confirm')
+    expect(bookingsPage).toContain('Checkout')
+    expect(bookingsPage).toContain('Mark completed')
+    expect(bookingsPage).toContain('Cancel booking')
+    expect(bookingsPage).toContain('lucide:check')
+    expect(bookingsPage).toContain('lucide:credit-card')
+    expect(bookingsPage).toContain('lucide:more-horizontal')
+    expect(bookingsPage).not.toContain('class="booking-primary-action')
+    expect(bookingsPage).not.toContain('booking-primary-action--confirm')
+    expect(bookingsPage).not.toContain('booking-primary-action--checkout')
+    expect(bookingsPage).not.toContain("@click=\"handleStatusChange(b.id, 'confirmed')\"")
+    expect(bookingsPage).not.toContain("v-else-if=\"b.status === 'confirmed' || b.status === 'completed'\"")
+    expect(bookingsPage).not.toContain('<details')
+    expect(bookingsPage).not.toContain('<summary')
+    expect(bookingsPage).not.toContain('class="status-action form-control"')
+    expect(bookingsPage).not.toContain('Update...')
+  })
+})

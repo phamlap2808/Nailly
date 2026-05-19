@@ -18,12 +18,13 @@ describe('BookingService', () => {
       serviceIds: ['svc-1'],
       staffId: 'staff-1',
       appointmentDate: '2026-06-03',
-      startTime: '10:00'
+      startTime: '10:00',
+      promotionCode: 'welcome10'
     })
 
     expect(result.status).toBe('pending_confirmation')
     expect(repository.createBooking).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'pending_confirmation' }),
+      expect.objectContaining({ status: 'pending_confirmation', promotionCode: 'WELCOME10' }),
       60
     )
   })

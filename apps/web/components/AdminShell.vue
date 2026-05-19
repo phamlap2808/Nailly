@@ -1,9 +1,9 @@
 <template>
   <div class="admin-shell">
     <aside class="admin-sidebar">
-      <NuxtLink to="/admin" class="sidebar-brand">
-        <span class="brand-mark">LN</span>
-        <span>Luma Nail Studio</span>
+      <NuxtLink to="/admin" class="sidebar-brand" :aria-label="`${sidebarShopName} admin home`">
+        <span class="brand-mark">{{ sidebarBrandInitials }}</span>
+        <span class="sidebar-brand-name">{{ sidebarShopName }}</span>
       </NuxtLink>
       <nav class="sidebar-nav" aria-label="Admin navigation">
         <NuxtLink
@@ -33,10 +33,34 @@
 
 <script setup lang="ts">
 import { adminNavItems } from '../utils/admin-nav'
-import type { AdminRole } from '@nailly/shared'
+import { resolveRuntimeApiBaseUrl } from '../utils/api-url'
+import { resolveShopName, shopInitials } from '../utils/shop-brand'
+
+interface SidebarShopSettings {
+  name?: string | null
+}
 
 const session = useSessionStore()
-const navItems = computed(() => adminNavItems((session.user?.role ?? 'staff') as AdminRole))
+const config = useRuntimeConfig()
+const baseUrl = resolveRuntimeApiBaseUrl(config, import.meta.server)
+const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+const sidebarShopNameState = useState<string | null>('admin-sidebar-shop-name', () => null)
+const navItems = computed(() => adminNavItems(session.user?.permissions))
+const { data: sidebarSettings } = await useFetch<SidebarShopSettings | null>('/admin/shop-settings', {
+  key: 'admin-sidebar-shop-settings',
+  baseURL: baseUrl,
+  credentials: 'include',
+  headers: requestHeaders,
+  default: () => null
+})
+
+watchEffect(() => {
+  const name = sidebarSettings.value?.name?.trim()
+  if (name) sidebarShopNameState.value = name
+})
+
+const sidebarShopName = computed(() => resolveShopName(sidebarShopNameState.value ?? sidebarSettings.value?.name))
+const sidebarBrandInitials = computed(() => shopInitials(sidebarShopName.value))
 
 onMounted(() => {
   document.documentElement.classList.add('admin-root-lock')
